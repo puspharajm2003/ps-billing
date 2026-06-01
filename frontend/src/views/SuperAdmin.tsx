@@ -21,7 +21,7 @@ interface LicenseeRow {
   created_at?: string;
 }
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.PROD ? '/_/backend/api' : 'http://localhost:5000/api';
 
 export default function SuperAdmin() {
   const { user: currentUser, authFetch } = useAuth();

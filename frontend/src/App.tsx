@@ -47,7 +47,7 @@ export interface CustomSectionDef {
   color: string;
 }
 
-export const API_URL = 'http://localhost:5000/api';
+export const API_URL = import.meta.env.PROD ? '/_/backend/api' : 'http://localhost:5000/api';
 
 function AppContent() {
   const { isAuthenticated, isLoading, isAdmin, logout, authFetch } = useAuth();

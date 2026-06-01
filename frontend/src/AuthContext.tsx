@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.PROD ? '/_/backend/api' : 'http://localhost:5000/api';
 
 export interface AuthUser {
   id: number;
