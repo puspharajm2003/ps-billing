@@ -6,9 +6,9 @@
             "framework": "vite"
         },
         "backend": {
-            "entrypoint": "backend/src/index.ts",
+            "entrypoint": "backend",
             "routePrefix": "/_/backend",
-            "builder": "@vercel/node"
+            "framework": "express"
         }
     }
 }
