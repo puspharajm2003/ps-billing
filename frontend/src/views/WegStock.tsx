@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Package, Search, Cpu, RefreshCw, AlertTriangle, ArrowUpRight, ArrowDownLeft,
-  Plus, Save, Trash2, ClipboardList, TruckIcon, BoxIcon, Eye
+  Save, Trash2, ClipboardList, TruckIcon, BoxIcon, Eye
 } from 'lucide-react';
 import { API_URL } from '../App';
 import type { Item } from '../../../backend/src/types';

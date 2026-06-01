@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Plus, Search, Edit, Trash2, X, Check, AlertTriangle, Cpu, Users, UserCheck, Settings, Tag, Wallet
+  Plus, Search, Edit, Trash2, X, Check, AlertTriangle, Cpu, Users, UserCheck, Tag, Wallet
 } from 'lucide-react';
 import { API_URL } from '../App';
 import type { Customer, Supplier, Item } from '../../../backend/src/types';
@@ -546,8 +546,8 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
                     <td>{item.gst_rate}%</td>
                     <td>
                       <div className="flex gap-2">
-                        <button className="btn btn-secondary" onClick={() => handleEditOpen(item.id)} style={{ padding: '0.4rem', color: 'var(--color-accent-blue)' }}><Edit size={14} /></button>
-                        <button className="btn btn-secondary" onClick={() => handleDelete(item.id)} style={{ padding: '0.4rem', color: '#ef4444' }}><Trash2 size={14} /></button>
+                        <button className="btn btn-secondary" onClick={() => handleEditOpen(item.id!)} style={{ padding: '0.4rem', color: 'var(--color-accent-blue)' }}><Edit size={14} /></button>
+                        <button className="btn btn-secondary" onClick={() => handleDelete(item.id!)} style={{ padding: '0.4rem', color: '#ef4444' }}><Trash2 size={14} /></button>
                       </div>
                     </td>
                   </tr>
