@@ -230,6 +230,23 @@ export default function Login() {
                   <span style={{ textDecoration: 'underline' }}>{t('E')}</span>{t('XIT')}
                 </button>
               </div>
+              
+              <div style={{ textAlign: 'center', marginTop: '10px' }}>
+                <a 
+                  href="https://github.com/puspharajm2003/ps-billing/releases/latest" 
+                  target="_blank" 
+                  rel="noreferrer"
+                  style={{
+                    color: '#0000ee',
+                    textDecoration: 'underline',
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '14px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Download Desktop App
+                </a>
+              </div>
 
             </form>
           </div>

@@ -111,8 +111,7 @@ export async function runBackup() {
             const values: any[] = [];
             const placeholders = chunk.map((row, rowIndex) => {
               const rowPlaceholders = columns.map((col, colIndex) => {
-                // eslint-disable-next-line security/detect-object-injection
-                const propValue = Object.prototype.hasOwnProperty.call(row, col.name) ? row[col.name] : null;
+                const propValue = Object.entries(row).find(([key]) => key === col.name)?.[1] ?? null;
                 values.push(propValue);
                 return `$${rowIndex * columns.length + colIndex + 1}`;
               }).join(', ');

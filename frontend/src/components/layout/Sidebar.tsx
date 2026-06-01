@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Database, ShoppingCart, TrendingUp, FileText, CreditCard, Package, BarChart2, FileBarChart, Settings, ShieldCheck, LogOut, Layers } from 'lucide-react';
+import { LayoutDashboard, Database, ShoppingCart, TrendingUp, FileText, CreditCard, Package, BarChart2, FileBarChart, Settings, ShieldCheck, LogOut, Layers, Download } from 'lucide-react';
 import type { CustomSectionDef } from '../../App';
 import './Sidebar.css';
 
@@ -130,6 +130,36 @@ export const Sidebar: React.FC<SidebarProps> = ({ isAdmin, onLogout, customSecti
           </button>
         </div>
       )}
+      {/* Download Desktop App Button */}
+      <div style={{ padding: '0.75rem 1rem', borderTop: '1px solid var(--color-border)', marginTop: onLogout ? 0 : 'auto' }}>
+        <a
+          href="https://github.com/puspharajm2003/ps-billing/releases/latest"
+          target="_blank"
+          rel="noreferrer"
+          className="nav-link"
+          style={{
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: '10px 16px',
+            background: 'var(--color-surface)',
+            border: '1px solid var(--color-primary)',
+            borderRadius: 'var(--border-radius-md)',
+            color: 'var(--color-primary)',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            fontWeight: 500,
+            transition: 'all 0.2s ease',
+            textDecoration: 'none'
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.background = 'var(--color-primary)'; e.currentTarget.style.color = '#fff'; }}
+          onMouseOut={(e) => { e.currentTarget.style.background = 'var(--color-surface)'; e.currentTarget.style.color = 'var(--color-primary)'; }}
+        >
+          <Download size={18} />
+          <span>{t('Download App')}</span>
+        </a>
+      </div>
     </aside>
   );
 };

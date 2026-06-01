@@ -19,6 +19,11 @@
     "directories": {
       "output": "dist"
     },
+    "publish": {
+      "provider": "github",
+      "owner": "puspharajm2003",
+      "repo": "ps-billing"
+    },
     "files": [
       "main.js",
       "backend/dist/**/*",
