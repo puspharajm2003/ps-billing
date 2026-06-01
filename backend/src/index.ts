@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import crypto from 'crypto';
+import path from 'path';
 import { 
   initializeDatabase, run, all, get, hashPassword, verifyPassword,
   getTenantDb, tenantContext
@@ -1326,6 +1327,23 @@ app.get('/api/reports/gst', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+// ==========================================
+// STATIC FRONTEND SERVING
+// ==========================================
+if (!process.env.VERCEL) {
+  const frontendDistPath = path.join(__dirname, '../../frontend/dist');
+  app.use(express.static(frontendDistPath));
+  
+  // Catch-all route to serve index.html for client-side routing
+  app.get('*', (req, res, next) => {
+    if (!req.path.startsWith('/api/')) {
+      res.sendFile(path.join(frontendDistPath, 'index.html'));
+    } else {
+      next();
+    }
+  });
+}
 
 // ==========================================
 // SERVER INITIALIZATION
