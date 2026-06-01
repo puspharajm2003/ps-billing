@@ -115,6 +115,22 @@ function requireAdmin(req: any, res: any, next: any) {
 }
 
 // ==========================================
+// 0. ELECTRON SYSTEM ENDPOINTS
+// ==========================================
+app.post('/api/shutdown', (req, res) => {
+  // Only allow shutdown in offline mode (meaning running locally in Electron)
+  if (process.env.VERCEL === '') {
+    res.json({ success: true, message: "Shutting down..." });
+    console.log("Shutdown requested by client. Exiting...");
+    setTimeout(() => {
+      process.exit(0);
+    }, 500);
+  } else {
+    res.status(403).json({ error: "Shutdown not allowed in hosted environment." });
+  }
+});
+
+// ==========================================
 // -1. ADMIN BACKUP
 // ==========================================
 app.post('/api/admin/backup/trigger', requireAdmin, async (req: any, res: any) => {

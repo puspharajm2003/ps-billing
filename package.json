@@ -45,6 +45,10 @@
         "nsis"
       ],
       "icon": "frontend/public/logo.jpg"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
     }
   },
   "keywords": [

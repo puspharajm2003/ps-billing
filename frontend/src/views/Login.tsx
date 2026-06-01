@@ -27,11 +27,14 @@ export default function Login() {
     }
   };
 
-  const handleExit = () => {
-    // Clear inputs or show a message if they try to exit the web app
-    setUsername('');
-    setPassword('');
-    setError('Cannot exit web application. Please close the browser tab.');
+  const handleExit = async () => {
+    try {
+      // In web app mode, this will fail or return 403, which is fine
+      await fetch('http://localhost:5000/api/shutdown', { method: 'POST' });
+      setError('Shutting down... please wait.');
+    } catch (err) {
+      setError('Cannot exit web application. Please close the browser tab.');
+    }
   };
 
   return (

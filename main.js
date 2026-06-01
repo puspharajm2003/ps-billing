@@ -10,8 +10,8 @@ function createWindow() {
     width: 1200,
     height: 800,
     webPreferences: {
-      nodeIntegration: true,
-      contextIsolation: false
+      nodeIntegration: false,
+      contextIsolation: true
     },
     icon: path.join(__dirname, 'frontend/public/logo.jpg'), // or use an .ico file for Windows
     title: "SMR Groups Billing"
@@ -42,6 +42,10 @@ app.whenReady().then(() => {
 
   backendProcess.stderr.on('data', (data) => {
     console.error(`Backend Error: ${data}`);
+  });
+
+  backendProcess.on('exit', () => {
+    app.quit();
   });
 
   // Wait a moment for Express to initialize SQLite and bind to port
