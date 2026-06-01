@@ -1314,12 +1314,19 @@ app.get('/api/reports/gst', async (req, res) => {
 // ==========================================
 // SERVER INITIALIZATION
 // ==========================================
-initializeDatabase()
-  .then(() => {
-    app.listen(PORT, () => {
-      console.log(`PS-billing Server is running on port ${PORT}`);
+if (!process.env.VERCEL) {
+  initializeDatabase()
+    .then(() => {
+      app.listen(PORT, () => {
+        console.log(`PS-billing Server is running on port ${PORT}`);
+      });
+    })
+    .catch((err) => {
+      console.error("Database initialization failed", err);
     });
-  })
-  .catch((err) => {
-    console.error("Database initialization failed", err);
-  });
+} else {
+  // Initialize DB asynchronously without blocking module export for Vercel
+  initializeDatabase().catch(err => console.error("Database initialization failed", err));
+}
+
+export default app;

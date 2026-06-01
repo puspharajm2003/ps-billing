@@ -58,6 +58,7 @@ export async function runBackup() {
     console.log("Connected to Neon DB.");
 
     const basePath = path.normalize(path.join(__dirname, '..'));
+    // eslint-disable-next-line security/detect-non-literal-fs-filename
     const files = fs.readdirSync(basePath).filter(f => f.endsWith('.sqlite'));
 
     for (const file of files) {
@@ -111,6 +112,7 @@ export async function runBackup() {
             const values: any[] = [];
             const placeholders = chunk.map((row, rowIndex) => {
               const rowPlaceholders = columns.map((col, colIndex) => {
+                // eslint-disable-next-line security/detect-object-injection
                 const propValue = Object.prototype.hasOwnProperty.call(row, col.name) ? row[col.name] : null;
                 values.push(propValue);
                 return `$${rowIndex * columns.length + colIndex + 1}`;
