@@ -22,11 +22,15 @@ jobs:
         with:
           node-version: 18
 
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build frontend and backend
-        run: npm run build:all
+      - name: Install dependencies and build
+        run: |
+          npm install
+          cd frontend
+          npm install
+          npm run build
+          cd ../backend
+          npm install
+          npm run build
 
       - name: Build and Publish Electron App
         run: npx electron-builder --win --publish always
