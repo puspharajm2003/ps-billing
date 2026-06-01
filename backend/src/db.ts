@@ -65,6 +65,7 @@ export function run(sql: string, params: any[] = []): Promise<{ id: number; chan
       try {
         const tenantSchema = getActiveDb() as string;
         const pgSql = convertCreateTable(convertToPgSql(sql));
+        if (!pgPool) throw new Error("Database not initialized. Ensure DATABASE_URL is set.");
         const client = await pgPool.connect();
         try {
           await client.query(`SET search_path TO "${tenantSchema}", public`);
@@ -91,6 +92,7 @@ export function all<T>(sql: string, params: any[] = []): Promise<T[]> {
       try {
         const tenantSchema = getActiveDb() as string;
         const pgSql = convertToPgSql(sql);
+        if (!pgPool) throw new Error("Database not initialized. Ensure DATABASE_URL is set.");
         const client = await pgPool.connect();
         try {
           await client.query(`SET search_path TO "${tenantSchema}", public`);
@@ -117,6 +119,7 @@ export function get<T>(sql: string, params: any[] = []): Promise<T | null> {
       try {
         const tenantSchema = getActiveDb() as string;
         const pgSql = convertToPgSql(sql);
+        if (!pgPool) throw new Error("Database not initialized. Ensure DATABASE_URL is set.");
         const client = await pgPool.connect();
         try {
           await client.query(`SET search_path TO "${tenantSchema}", public`);
@@ -235,6 +238,7 @@ export async function getTenantDb(userId: number): Promise<sqlite3.Database | st
       return tenantDbs.get(schemaName)!;
     }
 
+    if (!pgPool) throw new Error("Database not initialized. Ensure DATABASE_URL is set.");
     const client = await pgPool.connect();
     try {
       await client.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);

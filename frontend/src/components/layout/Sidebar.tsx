@@ -20,10 +20,7 @@ const menuItems = [
   { path: '/settings', name: 'Settings', icon: <Settings size={20} /> },
 ];
 
-const BRAND = {
-  FIRST: 'Smart',
-  SECOND: 'Bill',
-};
+
 
 interface SidebarProps {
   isAdmin?: boolean;
@@ -34,8 +31,9 @@ interface SidebarProps {
 export const Sidebar: React.FC<SidebarProps> = ({ isAdmin, onLogout, customSections = [] }) => {
   return (
     <aside className="sidebar">
-      <div className="sidebar-header">
-        <h2 className="brand">{BRAND.FIRST}<span className="text-gold">{BRAND.SECOND}</span></h2>
+      <div className="sidebar-header" style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+        <img src="/logo.jpg" alt="SMR Groups" style={{ height: '40px', width: '40px', objectFit: 'cover', borderRadius: '50%' }} />
+        <h2 className="brand" style={{ margin: 0 }}>{t('SMR')} <span className="text-gold">{t('Groups')}</span></h2>
       </div>
       <nav className="sidebar-nav">
         <ul>

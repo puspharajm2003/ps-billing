@@ -8,10 +8,6 @@ dotenv.config();
 
 const NEON_CONNECTION_STRING = process.env.NEON_DATABASE_URL;
 
-if (!NEON_CONNECTION_STRING) {
-  throw new Error("NEON_DATABASE_URL is not set in environment variables");
-}
-
 async function mapSQLiteTypeToPostgres(sqliteType: string): Promise<string> {
   const t = sqliteType.toUpperCase();
   if (t.includes('INT')) return 'INTEGER';
@@ -50,6 +46,9 @@ function getSqliteRows(db: sqlite3.Database, tableName: string): Promise<any[]> 
 }
 
 export async function runBackup() {
+  if (!NEON_CONNECTION_STRING) {
+    throw new Error("NEON_DATABASE_URL is not set in environment variables");
+  }
   console.log("Starting backup to Neon DB...");
   const pgClient = new Client({ connectionString: NEON_CONNECTION_STRING });
   
