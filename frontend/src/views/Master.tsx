@@ -303,11 +303,11 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
           <div className="form-group">
             <label>{t('Brand')}</label>
             <select className="form-control" value={itemForm.brand} onChange={e => setItemForm({...itemForm, brand: e.target.value})}>
-              <option value="WEG">WEG</option>
-              <option value="Crompton">Crompton</option>
-              <option value="ABB">ABB</option>
-              <option value="Siemens">Siemens</option>
-              <option value="Other">Other</option>
+              <option value="WEG">{t('WEG')}</option>
+              <option value="Crompton">{t('Crompton')}</option>
+              <option value="ABB">{t('ABB')}</option>
+              <option value="Siemens">{t('Siemens')}</option>
+              <option value="Other">{t('Other')}</option>
             </select>
           </div>
           <div className="form-group">
@@ -325,9 +325,9 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
           <div className="form-group">
             <label>{t('Phase')}</label>
             <select className="form-control" value={itemForm.phase || 'Three'} onChange={e => setItemForm({...itemForm, phase: e.target.value})}>
-              <option value="Three">Three Phase</option>
-              <option value="Single">Single Phase</option>
-              <option value="DC">DC</option>
+              <option value="Three">{t('Three Phase')}</option>
+              <option value="Single">{t('Single Phase')}</option>
+              <option value="DC">{t('DC')}</option>
             </select>
           </div>
           <div className="form-group">
