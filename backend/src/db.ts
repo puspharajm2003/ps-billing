@@ -1,4 +1,5 @@
 import sqlite3 from 'sqlite3';
+import { Pool } from 'pg';
 import path from 'path';
 import fs from 'fs';
 import crypto from 'crypto';
@@ -7,55 +8,152 @@ import {
 } from './types';
 
 import { AsyncLocalStorage } from 'async_hooks';
+import dotenv from 'dotenv';
+dotenv.config();
+
+const isOnline = !!process.env.VERCEL || process.env.USE_NEON === 'true';
 
 const DB_FILE = path.join(__dirname, '..', 'billing.sqlite');
-const masterDb = new sqlite3.Database(DB_FILE);
+let masterDb: sqlite3.Database;
+let pgPool: Pool;
 
-export const tenantContext = new AsyncLocalStorage<sqlite3.Database>();
-const tenantDbs = new Map<string, sqlite3.Database>();
+export const tenantContext = new AsyncLocalStorage<sqlite3.Database | string>();
+const tenantDbs = new Map<string, sqlite3.Database | string>();
 
-// Enable foreign keys on master
-masterDb.serialize(() => {
-  masterDb.run("PRAGMA foreign_keys = ON;");
-});
-
-function getActiveDb(): sqlite3.Database {
-  return tenantContext.getStore() || masterDb;
+// SQLite Helpers
+function initSqliteMaster() {
+  console.log("Initializing Master SQLite database at", DB_FILE);
+  masterDb = new sqlite3.Database(DB_FILE);
+  masterDb.serialize(() => {
+    masterDb.run("PRAGMA foreign_keys = ON;");
+  });
 }
 
-// Helper wrapper for runs
+// Postgres dialect conversion helpers
+function convertToPgSql(sql: string): string {
+  let counter = 1;
+  let pgSql = sql.replace(/\?/g, () => `$${counter++}`);
+  
+  // Convert SQLite date functions
+  pgSql = pgSql.replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP');
+  
+  // Append RETURNING id for inserts
+  if (pgSql.trim().toUpperCase().startsWith('INSERT') && !pgSql.toUpperCase().includes('RETURNING')) {
+    pgSql += ' RETURNING id';
+  }
+  return pgSql;
+}
+
+function convertCreateTable(sql: string): string {
+  let pgSql = sql.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
+  pgSql = pgSql.replace(/INSERT OR IGNORE INTO custom_sections \(name, slug, icon, color\) VALUES \(\?, \?, \?, \?\)/i, 
+    'INSERT INTO custom_sections (name, slug, icon, color) VALUES ($1, $2, $3, $4) ON CONFLICT (slug) DO NOTHING');
+  return pgSql;
+}
+
+function getActiveDb(): sqlite3.Database | string {
+  return tenantContext.getStore() || (isOnline ? 'public' : masterDb);
+}
+
+// ==========================================
+// DB WRAPPERS (Dual Adapter)
+// ==========================================
+
 export function run(sql: string, params: any[] = []): Promise<{ id: number; changes: number }> {
-  return new Promise((resolve, reject) => {
-    getActiveDb().run(sql, params, function (err) {
-      if (err) return reject(err);
-      resolve({ id: this.lastID, changes: this.changes });
-    });
+  return new Promise(async (resolve, reject) => {
+    if (isOnline) {
+      try {
+        const tenantSchema = getActiveDb() as string;
+        const pgSql = convertCreateTable(convertToPgSql(sql));
+        const client = await pgPool.connect();
+        try {
+          await client.query(`SET search_path TO "${tenantSchema}", public`);
+          const result = await client.query(pgSql, params);
+          resolve({ id: result.rows[0]?.id || 0, changes: result.rowCount || 0 });
+        } finally {
+          client.release();
+        }
+      } catch (err) {
+        reject(err);
+      }
+    } else {
+      (getActiveDb() as sqlite3.Database).run(sql, params, function (err) {
+        if (err) return reject(err);
+        resolve({ id: this.lastID, changes: this.changes });
+      });
+    }
   });
 }
 
-// Helper wrapper for all (get multiple rows)
 export function all<T>(sql: string, params: any[] = []): Promise<T[]> {
-  return new Promise((resolve, reject) => {
-    getActiveDb().all(sql, params, (err, rows) => {
-      if (err) return reject(err);
-      resolve(rows as T[]);
-    });
+  return new Promise(async (resolve, reject) => {
+    if (isOnline) {
+      try {
+        const tenantSchema = getActiveDb() as string;
+        const pgSql = convertToPgSql(sql);
+        const client = await pgPool.connect();
+        try {
+          await client.query(`SET search_path TO "${tenantSchema}", public`);
+          const result = await client.query(pgSql, params);
+          resolve(result.rows as T[]);
+        } finally {
+          client.release();
+        }
+      } catch (err) {
+        reject(err);
+      }
+    } else {
+      (getActiveDb() as sqlite3.Database).all(sql, params, (err, rows) => {
+        if (err) return reject(err);
+        resolve(rows as T[]);
+      });
+    }
   });
 }
 
-// Helper wrapper for get (get single row)
 export function get<T>(sql: string, params: any[] = []): Promise<T | null> {
-  return new Promise((resolve, reject) => {
-    getActiveDb().get(sql, params, (err, row) => {
-      if (err) return reject(err);
-      resolve((row || null) as T | null);
-    });
+  return new Promise(async (resolve, reject) => {
+    if (isOnline) {
+      try {
+        const tenantSchema = getActiveDb() as string;
+        const pgSql = convertToPgSql(sql);
+        const client = await pgPool.connect();
+        try {
+          await client.query(`SET search_path TO "${tenantSchema}", public`);
+          const result = await client.query(pgSql, params);
+          resolve((result.rows[0] || null) as T | null);
+        } finally {
+          client.release();
+        }
+      } catch (err) {
+        reject(err);
+      }
+    } else {
+      (getActiveDb() as sqlite3.Database).get(sql, params, (err, row) => {
+        if (err) return reject(err);
+        resolve((row || null) as T | null);
+      });
+    }
   });
 }
 
-// Initialize tables
+// ==========================================
+// Initialization
+// ==========================================
+
 export async function initializeDatabase() {
-  console.log("Initializing Master database at", DB_FILE);
+  if (isOnline) {
+    console.log("Initializing Neon Postgres connection...");
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL must be provided for online deployment.");
+    }
+    pgPool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: { rejectUnauthorized: false }
+    });
+  } else {
+    initSqliteMaster();
+  }
 
   // Users table (authentication)
   await run(`
@@ -110,8 +208,9 @@ export async function initializeDatabase() {
   }
 
   // Seed default super-admin account
-  const adminCount = await get<{ count: number }>("SELECT COUNT(*) as count FROM users");
-  if (!adminCount || adminCount.count === 0) {
+  const adminCount = await get<{ count: number | string }>("SELECT COUNT(*) as count FROM users");
+  const countNum = parseInt((adminCount?.count || 0).toString());
+  if (!adminCount || countNum === 0) {
     console.log("Seeding default super-admin account (puspharaj / 2003)...");
     const salt = crypto.randomBytes(16).toString('hex');
     const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
@@ -126,55 +225,92 @@ export async function initializeDatabase() {
 // Tenant Database Initialization
 // ==========================================
 
-export async function getTenantDb(userId: number): Promise<sqlite3.Database> {
+export async function getTenantDb(userId: number): Promise<sqlite3.Database | string> {
   const safeId = crypto.createHash('md5').update(String(userId)).digest('hex');
   const dbName = `billing_tenant_${safeId}.sqlite`;
+  const schemaName = `tenant_${safeId}`;
   
-  // Untaint the filename using a strict regex
-  if (!/^billing_tenant_[a-f0-9]{32}\.sqlite$/.test(dbName)) {
-    throw new Error("Invalid database filename pattern");
-  }
-  
-  const basePath = path.normalize(path.join(__dirname, '..'));
-  const fullPath = path.normalize(path.join(basePath, dbName));
-  
-  if (!fullPath.startsWith(basePath)) {
-    throw new Error("Invalid path specified for tenant database");
-  }
-  
-  if (tenantDbs.has(dbName)) {
-    return tenantDbs.get(dbName)!;
-  }
+  if (isOnline) {
+    if (tenantDbs.has(schemaName)) {
+      return tenantDbs.get(schemaName)!;
+    }
 
-  const tDb = new sqlite3.Database(fullPath);
-  
-  tDb.serialize(() => {
-    tDb.run("PRAGMA foreign_keys = ON;");
-  });
+    const client = await pgPool.connect();
+    try {
+      await client.query(`CREATE SCHEMA IF NOT EXISTS "${schemaName}"`);
+      tenantDbs.set(schemaName, schemaName);
 
-  tenantDbs.set(dbName, tDb);
+      await new Promise<void>((resolve, reject) => {
+        tenantContext.run(schemaName, async () => {
+          try {
+            const tableCheck = await get<{ count: number | string }>(`
+              SELECT count(*) as count 
+              FROM information_schema.tables 
+              WHERE table_schema = ? AND table_name = 'settings'
+            `, [schemaName]);
+            
+            const isNew = parseInt((tableCheck?.count || 0).toString()) === 0;
+            
+            if (isNew) {
+              await initializeTenantDatabase();
+            } else {
+              await migrateTenantDatabase();
+            }
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        });
+      });
+      return schemaName;
+    } finally {
+      client.release();
+    }
+  } else {
+    // Untaint the filename using a strict regex
+    if (!/^billing_tenant_[a-f0-9]{32}\.sqlite$/.test(dbName)) {
+      throw new Error("Invalid database filename pattern");
+    }
+    
+    const basePath = path.normalize(path.join(__dirname, '..'));
+    const fullPath = path.normalize(path.join(basePath, dbName));
+    
+    if (!fullPath.startsWith(basePath)) {
+      throw new Error("Invalid path specified for tenant database");
+    }
+    
+    if (tenantDbs.has(dbName)) {
+      return tenantDbs.get(dbName)! as sqlite3.Database;
+    }
 
-  await new Promise<void>((resolve, reject) => {
-    tenantContext.run(tDb, async () => {
-      try {
-        // Check if database is new by looking for a core table
-        const tableCheck = await get<{ count: number }>("SELECT count(*) as count FROM sqlite_master WHERE type='table' AND name='settings'");
-        const isNew = !tableCheck || tableCheck.count === 0;
-        
-        if (isNew) {
-          await initializeTenantDatabase();
-        } else {
-          // Always run migrations on existing DBs to ensure they are up to date
-          await migrateTenantDatabase();
-        }
-        resolve();
-      } catch (err) {
-        reject(err);
-      }
+    const tDb = new sqlite3.Database(fullPath);
+    
+    tDb.serialize(() => {
+      tDb.run("PRAGMA foreign_keys = ON;");
     });
-  });
 
-  return tDb;
+    tenantDbs.set(dbName, tDb);
+
+    await new Promise<void>((resolve, reject) => {
+      tenantContext.run(tDb, async () => {
+        try {
+          const tableCheck = await get<{ count: number }>("SELECT count(*) as count FROM sqlite_master WHERE type='table' AND name='settings'");
+          const isNew = !tableCheck || tableCheck.count === 0;
+          
+          if (isNew) {
+            await initializeTenantDatabase();
+          } else {
+            await migrateTenantDatabase();
+          }
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+
+    return tDb;
+  }
 }
 
 export async function initializeTenantDatabase() {
@@ -328,8 +464,6 @@ export async function initializeTenantDatabase() {
       FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL
     )
   `);
-
-  // Note: custom_sections and safe migrations are now handled by migrateTenantDatabase()
 }
 
 export async function migrateTenantDatabase() {
@@ -374,7 +508,7 @@ export async function migrateTenantDatabase() {
     try { await run(sql); } catch (_) { /* column already exists */ }
   }
 
-  // 9. Stock transactions table (Entry, Receipt, Issue)
+  // 9. Stock transactions table
   await run(`
     CREATE TABLE IF NOT EXISTS stock_transactions (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
