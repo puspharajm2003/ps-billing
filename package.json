@@ -1,0 +1,15 @@
+{
+  "name": "smr-groups-billing",
+  "version": "1.0.0",
+  "description": "SMR Groups Billing Software — Unified launcher for backend and frontend",
+  "main": "start.js",
+  "scripts": {
+    "dev": "node start.js",
+    "build": "node start.js --build",
+    "backend": "cd backend && npx ts-node src/index.ts",
+    "frontend": "cd frontend && npm run dev"
+  },
+  "keywords": ["billing", "gst", "invoice"],
+  "author": "Puspharaj M",
+  "license": "ISC"
+}
