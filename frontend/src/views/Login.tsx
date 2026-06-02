@@ -70,7 +70,7 @@ export default function Login() {
             boxShadow: '2px 2px 0 rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '10px', color: '#000080'
           }}>
-            TN
+            {t('TN')}
             {/* Fake shortcut arrow */}
             <div style={{ position: 'absolute', bottom: -4, left: -4, background: '#fff', border: '1px solid #000', width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 0, height: 0, borderTop: '3px solid transparent', borderBottom: '3px solid transparent', borderLeft: '4px solid #000' }} />
@@ -91,7 +91,7 @@ export default function Login() {
             boxShadow: '2px 2px 0 rgba(0,0,0,0.5)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '10px', color: '#800000'
           }}>
-            PY
+            {t('PY')}
             <div style={{ position: 'absolute', bottom: -4, left: -4, background: '#fff', border: '1px solid #000', width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 0, height: 0, borderTop: '3px solid transparent', borderBottom: '3px solid transparent', borderLeft: '4px solid #000' }} />
             </div>
