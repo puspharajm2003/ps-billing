@@ -43,6 +43,11 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate, onSections
   const [newSectionColor, setNewSectionColor] = useState('#6366f1');
   const [sectionAlert, setSectionAlert] = useState<string | null>(null);
 
+  // Backup state
+  const [securityKey, setSecurityKey] = useState('');
+  const [backupLoading, setBackupLoading] = useState(false);
+  const [backupAlert, setBackupAlert] = useState<string | null>(null);
+
   const fetchSettings = async () => {
     try {
       const res = await authFetch(`${API_URL}/settings`);
@@ -105,6 +110,47 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate, onSections
         if (onSectionsUpdate) onSectionsUpdate();
       }
     } catch (err) { console.error(err); }
+  };
+
+  const handleBackup = async () => {
+    if (securityKey.length < 6) {
+      setBackupAlert('Security key must be at least 6 characters.');
+      return;
+    }
+    setBackupLoading(true);
+    setBackupAlert(null);
+    try {
+      const res = await authFetch(`${API_URL}/backup`, {
+        method: 'POST',
+        body: JSON.stringify({ securityKey })
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        // The filename is provided in Content-Disposition header, but we can set a fallback here
+        const contentDisposition = res.headers.get('Content-Disposition');
+        let filename = 'backup.enc';
+        if (contentDisposition && contentDisposition.includes('filename="')) {
+          filename = contentDisposition.split('filename="')[1].split('"')[0];
+        }
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.URL.revokeObjectURL(url);
+        setBackupAlert('✓ Backup downloaded successfully!');
+        setSecurityKey('');
+      } else {
+        const err = await res.json();
+        setBackupAlert(err.error || 'Backup failed.');
+      }
+    } catch (err) {
+      setBackupAlert('Network error during backup.');
+    } finally {
+      setBackupLoading(false);
+    }
   };
 
   if (loading && !settings.company_name) {
@@ -252,6 +298,47 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate, onSections
           </button>
         </div>
       </form>
+
+      {/* ========================
+          SECURE DATABASE BACKUP
+          ======================== */}
+      <div className="glass-card flex flex-col gap-4" style={{ borderColor: 'var(--color-accent-gold)', borderWidth: '1px', marginTop: '1.5rem' }}>
+        <h3 className="text-gold flex items-center gap-2">
+          <Save size={20} />
+          <span>{t('Secure Offline Backup')}</span>
+        </h3>
+        <p className="text-secondary" style={{ fontSize: '0.85rem' }}>
+          {t('Download an encrypted copy of your entire local database (Settings, Invoices, Customers, Items, etc.). The file will be encrypted using AES-256 with the security key you provide below.')}
+        </p>
+
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="form-group" style={{ flex: 1, minWidth: 200 }}>
+            <label>{t('Encryption Security Key (Min 6 chars)')}</label>
+            <input 
+              type="password" 
+              value={securityKey} 
+              onChange={e => setSecurityKey(e.target.value)} 
+              placeholder="e.g. MySecretKey123"
+              className="form-control"
+            />
+          </div>
+          <button 
+            type="button" 
+            className="btn btn-primary" 
+            onClick={handleBackup}
+            disabled={backupLoading}
+            style={{ background: 'var(--color-accent-gold)', borderColor: 'var(--color-accent-gold)', color: '#000', marginBottom: '0.4rem' }}
+          >
+            <Save size={16} />
+            <span>{backupLoading ? t('Encrypting & Downloading...') : t('Download Encrypted Backup')}</span>
+          </button>
+        </div>
+        {backupAlert && (
+          <p style={{ color: backupAlert.startsWith('✓') ? '#10b981' : '#ef4444', fontSize: '0.85rem' }}>
+            {backupAlert}
+          </p>
+        )}
+      </div>
 
       {/* ========================
           DOCUMENT SECTIONS MANAGER

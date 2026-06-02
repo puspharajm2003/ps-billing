@@ -55,6 +55,11 @@ export default function SuperAdmin() {
   const [newLicenseeName, setNewLicenseeName] = useState('');
   const [isLicenseeNameManuallyEdited, setIsLicenseeNameManuallyEdited] = useState(false);
 
+  // Edit licensee state
+  const [editLicenseeId, setEditLicenseeId] = useState<number | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState('');
+  const [editLicenseeName, setEditLicenseeName] = useState('');
+
   // Change own password
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [currentPassword, setCurrentPassword] = useState('');
@@ -208,6 +213,34 @@ export default function SuperAdmin() {
       } else {
         const data = await res.json();
         showMessage(data.error || t('Failed to create licensee'), 'error');
+      }
+    } catch {
+      showMessage(t('Network error'), 'error');
+    }
+  };
+
+  const handleEditLicensee = async (id: number) => {
+    if (!editCompanyName.trim()) {
+      showMessage(t('Company name is required'), 'error');
+      return;
+    }
+
+    try {
+      const res = await authFetch(`${API_URL}/admin/licensees/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          company_name: editCompanyName,
+          licensee_name: editLicenseeName
+        }),
+      });
+      if (res.ok) {
+        showMessage(t('Licensee updated successfully'), 'success');
+        setEditLicenseeId(null);
+        fetchLicensees();
+        fetchUsers();
+      } else {
+        const data = await res.json();
+        showMessage(data.error || t('Failed to update licensee'), 'error');
       }
     } catch {
       showMessage(t('Network error'), 'error');
@@ -414,7 +447,7 @@ export default function SuperAdmin() {
                   <select className="form-control" value={newLicenseNumberAssoc} onChange={(e) => setNewLicenseNumberAssoc(e.target.value)}>
                     <option value="">{t('-- Select License --')}</option>
                     {licensees.map(l => (
-                      <option key={l.id} value={l.license_number}>{l.company_name} ({l.license_number})</option>
+                      <option key={l.license_number} value={l.license_number}>{l.company_name} ({l.license_number})</option>
                     ))}
                   </select>
                 </div>
@@ -462,11 +495,11 @@ export default function SuperAdmin() {
                 </tr>
               </thead>
               <tbody>
-                {users.map((u) => (
-                  <tr key={u.id} style={{ borderBottom: '1px solid var(--color-border, #222)' }}>
-                    {editingId === u.id ? (
+                {users.filter(u => u.id != null).map((u) => (
+                  <tr key={String(u.id)} style={{ borderBottom: '1px solid var(--color-border, #222)' }}>
+                    {editingId !== null && editingId === u.id ? (
                       <>
-                        <td style={{ padding: '10px 12px' }}>{u.id}</td>
+                        <td style={{ padding: '10px 12px' }}>{u.id || '-'}</td>
                         <td style={{ padding: '10px 12px' }}>
                           <input type="text" className="form-control" value={editUsername} onChange={(e) => setEditUsername(e.target.value)} style={{ padding: '4px 8px', fontSize: '0.85rem' }} />
                         </td>
@@ -479,8 +512,8 @@ export default function SuperAdmin() {
                         <td style={{ padding: '10px 12px' }}>
                           <select className="form-control" value={editLicenseNumberAssoc} onChange={(e) => setEditLicenseNumberAssoc(e.target.value)} style={{ padding: '4px 8px', fontSize: '0.85rem', width: '100%' }}>
                             <option value="">{t('-- Select License --')}</option>
-                            {licensees.map(l => (
-                              <option key={l.id} value={l.license_number}>{l.company_name}</option>
+                            {licensees.filter(l => l.id != null).map(l => (
+                              <option key={l.license_number} value={l.license_number}>{l.company_name}</option>
                             ))}
                           </select>
                         </td>
@@ -500,7 +533,7 @@ export default function SuperAdmin() {
                       </>
                     ) : (
                       <>
-                        <td style={{ padding: '10px 12px', fontFamily: 'monospace' }}>{u.id}</td>
+                        <td style={{ padding: '10px 12px', fontFamily: 'monospace' }}>{u.id || '-'}</td>
                         <td style={{ padding: '10px 12px', fontWeight: 600 }}>
                           {u.username}
                           {u.id === currentUser?.id && (
@@ -685,25 +718,77 @@ export default function SuperAdmin() {
                 </tr>
               </thead>
               <tbody>
-                {licensees.map((l) => (
-                  <tr key={l.id} style={{ borderBottom: '1px solid var(--color-border, #222)' }}>
-                    <td style={{ padding: '10px 12px', fontFamily: 'monospace' }}>{l.id}</td>
-                    <td style={{ padding: '10px 12px', fontWeight: 600 }}>{l.company_name}</td>
-                    <td style={{ padding: '10px 12px' }}>{l.licensee_name}</td>
-                    <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 600, color: 'var(--color-accent-blue)' }}>{l.license_number}</td>
-                    <td style={{ padding: '10px 12px', fontSize: '0.82rem', opacity: 0.8 }}>
-                      {l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}
-                    </td>
-                    <td style={{ padding: '10px 12px', textAlign: 'center' }}>
-                      <button
-                        className="btn btn-secondary"
-                        style={{ padding: '4px 10px', fontSize: '0.8rem', color: '#ef4444' }}
-                        onClick={() => handleDeleteLicensee(l.id!, l.company_name)}
-                        title={t('Delete licensee')}
-                      >
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
+                {licensees.filter(l => l.license_number).map((l) => (
+                  <tr key={l.license_number} style={{ borderBottom: '1px solid var(--color-border, #222)' }}>
+                    {editLicenseeId !== null && editLicenseeId === l.id ? (
+                      <>
+                        <td style={{ padding: '10px 12px', fontFamily: 'monospace' }}>{l.id || '-'}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <input type="text" className="form-control" value={editCompanyName} onChange={(e) => setEditCompanyName(e.target.value)} style={{ padding: '4px 8px', fontSize: '0.85rem' }} />
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <input type="text" className="form-control" value={editLicenseeName} onChange={(e) => setEditLicenseeName(e.target.value)} style={{ padding: '4px 8px', fontSize: '0.85rem' }} />
+                        </td>
+                        <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 600, color: 'var(--color-accent-blue)' }}>{l.license_number}</td>
+                        <td style={{ padding: '10px 12px', fontSize: '0.82rem', opacity: 0.8 }}>
+                          {l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                            <button className="btn btn-primary" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => handleEditLicensee(l.id!)}>
+                              <Save size={14} />
+                            </button>
+                            <button className="btn btn-secondary" style={{ padding: '4px 10px', fontSize: '0.8rem' }} onClick={() => setEditLicenseeId(null)}>
+                              <X size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td style={{ padding: '10px 12px', fontFamily: 'monospace' }}>{l.id || '-'}</td>
+                        <td style={{ padding: '10px 12px', fontWeight: 600 }}>{l.company_name}</td>
+                        <td style={{ padding: '10px 12px' }}>{l.licensee_name}</td>
+                        <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontWeight: 600, color: 'var(--color-accent-blue)' }}>{l.license_number}</td>
+                        <td style={{ padding: '10px 12px', fontSize: '0.82rem', opacity: 0.8 }}>
+                          {l.created_at ? new Date(l.created_at).toLocaleDateString() : '—'}
+                        </td>
+                        <td style={{ padding: '10px 12px', textAlign: 'center' }}>
+                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 10px', fontSize: '0.8rem' }}
+                              onClick={() => {
+                                if (!l.id) {
+                                  showMessage(t('Cannot edit this record: missing ID. Try refreshing the page.'), 'error');
+                                  return;
+                                }
+                                setEditLicenseeId(l.id);
+                                setEditCompanyName(l.company_name);
+                                setEditLicenseeName(l.licensee_name);
+                              }}
+                              title={t('Edit licensee')}
+                            >
+                              <Edit3 size={14} />
+                            </button>
+                            <button
+                              className="btn btn-secondary"
+                              style={{ padding: '4px 10px', fontSize: '0.8rem', color: '#ef4444' }}
+                              onClick={() => {
+                                if (!l.id) {
+                                  showMessage(t('Cannot delete this record: missing ID. Try refreshing the page.'), 'error');
+                                  return;
+                                }
+                                handleDeleteLicensee(l.id, l.company_name);
+                              }}
+                              title={t('Delete licensee')}
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
+                      </>
+                    )}
                   </tr>
                 ))}
                 {licensees.length === 0 && (

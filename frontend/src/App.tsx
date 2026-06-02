@@ -158,7 +158,7 @@ function AppContent() {
           <Route path="/reports/sales" element={<Reports defaultTab="sales-statement" />} />
           <Route path="/reports/gst" element={<Reports defaultTab="gst-reports" />} />
           <Route path="/settings" element={<Settings onSettingsUpdate={fetchSettings} onSectionsUpdate={fetchCustomSections} />} />
-          {isAdmin && <Route path="/admin" element={<SuperAdmin />} />}
+          <Route path="/admin" element={isAdmin ? <SuperAdmin /> : <Dashboard />} />
           {customSections.map(sec => (
             <Route key={sec.slug} path={`/section/${sec.slug}`} element={
               <CustomSection settings={settings} sectionSlug={sec.slug} sectionName={sec.name} sectionColor={sec.color} />
@@ -208,7 +208,7 @@ function AppContent() {
           <Route path="/reports/sales" element={<Reports defaultTab="sales-statement" />} />
           <Route path="/reports/gst" element={<Reports defaultTab="gst-reports" />} />
           <Route path="/settings" element={<Settings onSettingsUpdate={fetchSettings} onSectionsUpdate={fetchCustomSections} />} />
-          {isAdmin && <Route path="/admin" element={<SuperAdmin />} />}
+          <Route path="/admin" element={isAdmin ? <SuperAdmin /> : <Dashboard />} />
           {customSections.map(sec => (
             <Route key={sec.slug} path={`/section/${sec.slug}`} element={
               <CustomSection settings={settings} sectionSlug={sec.slug} sectionName={sec.name} sectionColor={sec.color} />

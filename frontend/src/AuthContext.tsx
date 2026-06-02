@@ -35,6 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   // Authenticated fetch helper — automatically adds Bearer token
+  // If a 401 is returned, clears the session so the user is sent to login
   const authFetch = useCallback(async (url: string, options: RequestInit = {}): Promise<Response> => {
     const currentToken = localStorage.getItem('auth_token');
     const headers: any = {
@@ -44,8 +45,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (currentToken) {
       headers['Authorization'] = `Bearer ${currentToken}`;
     }
-    return fetch(url, { ...options, headers });
-  }, []);
+    const response = await fetch(url, { ...options, headers });
+    // Auto-logout on expired/invalid session (but not on login attempt itself)
+    if (response.status === 401 && !url.includes('/auth/login')) {
+      localStorage.removeItem('auth_token');
+      setToken(null);
+      setUser(null);
+    }
+    return response;
+  }, [setToken, setUser]);
 
   // Restore session on mount
   useEffect(() => {

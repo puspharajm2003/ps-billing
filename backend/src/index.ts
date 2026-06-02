@@ -4,7 +4,7 @@ import crypto from 'crypto';
 import path from 'path';
 import { 
   initializeDatabase, run, all, get, hashPassword, verifyPassword,
-  getTenantDb, tenantContext
+  getTenantDb, tenantContext, runGlobal, allGlobal, getGlobal
 } from './db';
 import { 
   CompanySettings, Customer, Supplier, Item, Invoice, InvoiceItem, Payment, User, Session 
@@ -14,6 +14,9 @@ import { runBackup } from './backup';
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Trust Vercel's reverse proxy
+app.set('trust proxy', 1);
+
 const allowedOrigins = [
   'http://localhost:5173',
   'http://localhost:5000',
@@ -21,13 +24,16 @@ const allowedOrigins = [
   'https://ps-billing.vercel.app',
   'https://ps-billing-qsiwkjdul-puspharaj.vercel.app'
 ];
+
 app.use(cors({
   origin: function (origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
+    // Allow requests with no origin (Electron, curl, health checks)
+    if (!origin) return callback(null, true);
+    // Allow all vercel.app subdomains (covers preview deployments)
+    if (origin.endsWith('.vercel.app') || allowedOrigins.includes(origin)) {
+      return callback(null, true);
     }
+    callback(new Error('Not allowed by CORS'));
   },
   credentials: true
 }));
@@ -43,8 +49,12 @@ app.use((req, res, next) => {
 // AUTHENTICATION MIDDLEWARE
 // ==========================================
 app.use(async (req: any, res, next) => {
+  const p = req.path || '';
+  const isLoginPath = p === '/api/auth/login' || p.endsWith('/api/auth/login');
+  const isHealthPath = p === '/api/health' || p.endsWith('/api/health');
+
   // Public routes that don't require authentication
-  if (req.path === '/api/auth/login') {
+  if (isLoginPath || isHealthPath) {
     return next();
   }
 
@@ -115,11 +125,33 @@ function requireAdmin(req: any, res: any, next: any) {
 }
 
 // ==========================================
+// 0. HEALTH CHECK (PUBLIC)
+// ==========================================
+app.get('/api/health', async (req, res) => {
+  try {
+    // Run a lightweight DB query to confirm the connection is alive
+    await get<{ val: number }>('SELECT 1 as val', []);
+    res.json({
+      status: 'ok',
+      mode: process.env.VERCEL ? 'vercel-postgres' : (process.env.USE_NEON === 'true' ? 'neon-postgres' : 'sqlite'),
+      timestamp: new Date().toISOString(),
+      version: '1.0.2',
+    });
+  } catch (err: any) {
+    res.status(503).json({
+      status: 'error',
+      message: err.message,
+      hint: 'Check that DATABASE_URL is set correctly in Vercel Environment Variables.',
+    });
+  }
+});
+
+// ==========================================
 // 0. ELECTRON SYSTEM ENDPOINTS
 // ==========================================
 app.post('/api/shutdown', (req, res) => {
-  // Only allow shutdown in offline mode (meaning running locally in Electron)
-  if (process.env.VERCEL === '') {
+  // Only allow shutdown in offline mode — VERCEL env var is '1' on Vercel, absent locally
+  if (!process.env.VERCEL) {
     res.json({ success: true, message: "Shutting down..." });
     console.log("Shutdown requested by client. Exiting...");
     setTimeout(() => {
@@ -140,6 +172,80 @@ app.post('/api/admin/backup/trigger', requireAdmin, async (req: any, res: any) =
   } catch (error: any) {
     res.status(500).json({ error: 'Backup failed', details: error.message });
   }
+});
+
+// ==========================================
+// -1. ADMIN USER & LICENSEE MANAGEMENT
+// ==========================================
+
+app.get('/api/admin/users', requireAdmin, async (req: any, res: any) => {
+  try {
+    const users = await allGlobal("SELECT id, username, role, license_number, created_at, last_login FROM users");
+    res.json(users);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/users', requireAdmin, async (req: any, res: any) => {
+  try {
+    const { username, password, role, license_number } = req.body;
+    const pwdHash = await hashPassword(password);
+    await runGlobal("INSERT INTO users (username, password_hash, salt, role, license_number, created_at) VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)", [username, pwdHash.hash, pwdHash.salt, role, license_number || null]);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/users/:id', requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { username, password, role, license_number } = req.body;
+    if (password) {
+      const pwdHash = await hashPassword(password);
+      await runGlobal("UPDATE users SET username = ?, password_hash = ?, salt = ?, role = ?, license_number = ? WHERE id = ?", [username, pwdHash.hash, pwdHash.salt, role, license_number || null, id]);
+    } else {
+      await runGlobal("UPDATE users SET username = ?, role = ?, license_number = ? WHERE id = ?", [username, role, license_number || null, id]);
+    }
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/users/:id', requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    await runGlobal("DELETE FROM users WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/admin/licensees', requireAdmin, async (req: any, res: any) => {
+  try {
+    const licensees = await allGlobal("SELECT * FROM licensees");
+    res.json(licensees);
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/admin/licensees', requireAdmin, async (req: any, res: any) => {
+  try {
+    const { license_number, company_name, licensee_name } = req.body;
+    await runGlobal("INSERT INTO licensees (license_number, company_name, licensee_name, created_at) VALUES (?, ?, ?, CURRENT_TIMESTAMP)", [license_number, company_name, licensee_name]);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/admin/licensees/:id', requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    const { company_name, licensee_name } = req.body;
+    await runGlobal("UPDATE licensees SET company_name = ?, licensee_name = ? WHERE id = ?", [company_name, licensee_name, id]);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/admin/licensees/:id', requireAdmin, async (req: any, res: any) => {
+  try {
+    const { id } = req.params;
+    await runGlobal("DELETE FROM licensees WHERE id = ?", [id]);
+    res.json({ success: true });
+  } catch (err: any) { res.status(500).json({ error: err.message }); }
 });
 
 // ==========================================
@@ -207,7 +313,15 @@ app.post('/api/auth/login', async (req, res) => {
       }
     });
   } catch (err: any) {
-    res.status(500).json({ error: err.message });
+    const msg: string = err.message || 'Unknown error';
+    // Distinguish DB connection errors from auth errors
+    if (msg.includes('ENOTFOUND') || msg.includes('DATABASE_URL') || msg.includes('not initialized') || msg.includes('connect ECONNREFUSED')) {
+      return res.status(503).json({ 
+        error: 'Database unavailable. Ensure DATABASE_URL is set in Vercel Environment Variables.',
+        details: msg
+      });
+    }
+    res.status(500).json({ error: msg });
   }
 });
 
@@ -274,7 +388,13 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
       [username, hash, salt, role || 'user', license_number || null]
     );
 
-    const newUser = await get<any>("SELECT id, username, role, license_number, created_at, last_login FROM users WHERE id = ?", [result.id]);
+    let newUser = null;
+    if (result.id) {
+      newUser = await get<any>("SELECT id, username, role, license_number, created_at, last_login FROM users WHERE id = ?", [result.id]);
+    }
+    if (!newUser) {
+      newUser = await get<any>("SELECT id, username, role, license_number, created_at, last_login FROM users WHERE username = ?", [username]);
+    }
     res.status(201).json(newUser);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -360,8 +480,37 @@ app.post('/api/admin/licensees', requireAdmin, async (req, res) => {
       [license_number, company_name, finalLicenseeName]
     );
 
-    const newLicensee = await get<any>("SELECT * FROM licensees WHERE id = ?", [result.id]);
+    let newLicensee = null;
+    if (result.id) {
+      newLicensee = await get<any>("SELECT * FROM licensees WHERE id = ?", [result.id]);
+    }
+    if (!newLicensee) {
+      newLicensee = await get<any>("SELECT * FROM licensees WHERE license_number = ?", [license_number]);
+    }
     res.status(201).json(newLicensee);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/admin/licensees/:id', requireAdmin, async (req: any, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { company_name, licensee_name } = req.body;
+
+    if (!company_name) {
+      return res.status(400).json({ error: 'Company name is required' });
+    }
+
+    const finalLicenseeName = licensee_name || company_name;
+
+    await run(
+      "UPDATE licensees SET company_name = ?, licensee_name = ? WHERE id = ?",
+      [company_name, finalLicenseeName, id]
+    );
+
+    const updated = await get<any>("SELECT * FROM licensees WHERE id = ?", [id]);
+    res.json(updated);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
@@ -428,31 +577,183 @@ app.put('/api/admin/change-password', async (req: any, res) => {
 });
 
 // ==========================================
+// SECURE BACKUP ENDPOINT
+// ==========================================
+app.post('/api/backup', async (req: any, res) => {
+  try {
+    const { securityKey } = req.body;
+    if (!securityKey || securityKey.length < 6) {
+      return res.status(400).json({ error: 'Security key must be at least 6 characters long' });
+    }
+
+    // Export data from all tenant tables
+    const data = {
+      timestamp: new Date().toISOString(),
+      license_number: req.user.license_number,
+      settings: await all("SELECT * FROM settings"),
+      customers: await all("SELECT * FROM customers"),
+      suppliers: await all("SELECT * FROM suppliers"),
+      items: await all("SELECT * FROM items"),
+      invoices: await all("SELECT * FROM invoices"),
+      invoice_items: await all("SELECT * FROM invoice_items"),
+      payments: await all("SELECT * FROM payments"),
+      custom_sections: await all("SELECT * FROM custom_sections")
+    };
+
+    const jsonString = JSON.stringify(data);
+
+    // Encrypt the JSON data using AES-256-CBC
+    const algorithm = 'aes-256-cbc';
+    const salt = 'smr-matrix-engine-salt-v1'; 
+    const key = crypto.scryptSync(securityKey, salt, 32);
+    const iv = crypto.randomBytes(16);
+
+    const cipher = crypto.createCipheriv(algorithm, key, iv);
+    let encrypted = cipher.update(jsonString, 'utf8', 'hex');
+    encrypted += cipher.final('hex');
+
+    // Prepend IV to the encrypted text so it can be decrypted later
+    const payload = iv.toString('hex') + ':' + encrypted;
+
+    // Send as file download
+    res.setHeader('Content-Type', 'application/octet-stream');
+    res.setHeader('Content-Disposition', `attachment; filename="smr_backup_${req.user.license_number}_${Date.now()}.enc"`);
+    res.send(Buffer.from(payload, 'utf8'));
+
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
 // 1. COMPANY SETTINGS ENDPOINTS
 // ==========================================
-app.get('/api/settings', async (req, res) => {
+app.get('/api/settings', async (req: any, res) => {
   try {
-    const settings = await get<CompanySettings>("SELECT * FROM settings ORDER BY id DESC LIMIT 1");
+    let settings = await get<CompanySettings>("SELECT * FROM settings ORDER BY id DESC LIMIT 1");
+    
+    // Determine dynamic defaults based on logged-in user
+    let defaultCompanyName = 'SMR Groups';
+    let defaultState = 'Andhra Pradesh';
+    let defaultStateCode = '37';
+    let defaultAddress = 'Plot No. 45, Industrial Development Area, Visakhapatnam, Andhra Pradesh';
+    let defaultPhone = '+91 8899889988';
+    let defaultEmail = 'billing@smrgroups.com';
+    let defaultGstin = '37AAAAASMRG1Z9';
+    let defaultBank = 'State Bank of India';
+    let defaultAccName = 'SMR GROUPS SOLUTIONS';
+    let defaultAccNum = '30099887766';
+    let defaultIfsc = 'SBIN0004562';
+    let defaultBranch = 'Industrial Estate';
+
+    const username = req.user?.username || '';
+    const license = req.user?.license_number || '';
+
+    if (license === 'LIC-TAMILNADU' || username === 'smrtamilnadu') {
+      defaultCompanyName = 'SMR Groups Tamilnadu';
+      defaultState = 'Tamil Nadu';
+      defaultStateCode = '33';
+      defaultAddress = 'No. 3, 4th Cross Street, Kalaivanar Nagar, MK Chavady, Vanur, Viluppuram District, Tamil Nadu - 605109';
+      defaultPhone = '9786651063';
+      defaultEmail = 'smrtamilnadu@gmail.com';
+      defaultGstin = '33AYGPV7610M1ZZ';
+      defaultBank = 'Indian Bank';
+      defaultAccName = 'SMR GROUPS TAMILNADU';
+      defaultAccNum = '50099887766';
+      defaultIfsc = 'IDIB000C024';
+      defaultBranch = 'Chennai Main';
+    } else if (license === 'LIC-PONDY' || username === 'smrpondy') {
+      defaultCompanyName = 'PS Robotix';
+      defaultState = 'Puducherry';
+      defaultStateCode = '34';
+      defaultAddress = 'No.3, 4th Cross, Middle Street, Kalavanai Nagar, Jipmer Check Post, Puducherry - 605006';
+      defaultPhone = '+91 6369278905';
+      defaultEmail = 'Psrobotix@gmail.com';
+      defaultGstin = '34AAAAASMRG1Z9';
+      defaultBank = 'UCO Bank';
+      defaultAccName = 'PS ROBOTIX';
+      defaultAccNum = '10099887766';
+      defaultIfsc = 'UCBA0001852';
+      defaultBranch = 'Puducherry Main';
+    } else if (license === 'LIC-SMRTRADING' || username === 'smrtrading' || username === 'SMR Trading and Company Pondy') {
+      defaultCompanyName = 'SMR TRADING AND COMPANY';
+      defaultState = 'Puducherry';
+      defaultStateCode = '34';
+      defaultAddress = 'No. 3, Mariyamman Koil Street, Kadirkamam, Puducherry - 605009';
+      defaultPhone = '9786651063';
+      defaultEmail = 'smrtrading@gmail.com';
+      defaultGstin = '34AYGPV7610MIZX';
+      defaultBank = 'UCO Bank';
+      defaultAccName = 'SMR TRADING AND COMPANY';
+      defaultAccNum = '10099887766';
+      defaultIfsc = 'UCBA0001852';
+      defaultBranch = 'Puducherry Main';
+    }
+
+    if (!settings) {
+      // Table is empty, insert the correct defaults
+      await run(`
+        INSERT INTO settings (
+          company_name, address, phone, email, gstin, state, state_code,
+          bank_name, account_name, account_number, ifsc_code, branch, terms_conditions
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `, [
+        defaultCompanyName, defaultAddress, defaultPhone, defaultEmail, defaultGstin, defaultState, defaultStateCode,
+        defaultBank, defaultAccName, defaultAccNum, defaultIfsc, defaultBranch, 'Standard terms apply.'
+      ]);
+      settings = await get<CompanySettings>("SELECT * FROM settings ORDER BY id DESC LIMIT 1");
+    }
+
     res.json(settings);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.put('/api/settings', async (req, res) => {
+app.put('/api/settings', async (req: any, res) => {
   try {
     const s = req.body as CompanySettings;
     await run(`
       UPDATE settings SET
         company_name = ?, address = ?, phone = ?, email = ?, gstin = ?, state = ?, state_code = ?,
         bank_name = ?, account_name = ?, account_number = ?, ifsc_code = ?, branch = ?, terms_conditions = ?
-      WHERE id = 1
+      WHERE id = ?
     `, [
       s.company_name, s.address, s.phone, s.email, s.gstin, s.state, s.state_code,
-      s.bank_name, s.account_name, s.account_number, s.ifsc_code, s.branch, s.terms_conditions
+      s.bank_name, s.account_name, s.account_number, s.ifsc_code, s.branch, s.terms_conditions,
+      s.id
     ]);
-    const updated = await get<CompanySettings>("SELECT * FROM settings WHERE id = 1");
+    
+    try {
+      const username = req.user?.username || 'Unknown';
+      const license = req.user?.license_number || 'Unknown';
+      await runGlobal(`
+        INSERT INTO notifications (tenant_name, username, action, details)
+        VALUES (?, ?, ?, ?)
+      `, [
+        license, username, 'Settings Updated', `Company profile settings were updated.`
+      ]);
+    } catch (e) {
+      console.error("Failed to insert notification", e);
+    }
+
+    const updated = await get<CompanySettings>("SELECT * FROM settings WHERE id = ?", [s.id]);
     res.json(updated);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ==========================================
+// ADMIN NOTIFICATIONS ENDPOINT
+// ==========================================
+app.get('/api/admin/notifications', async (req: any, res) => {
+  try {
+    if (req.user.license_number !== 'Admin') {
+      return res.status(403).json({ error: 'Forbidden' });
+    }
+    const rows = await allGlobal<any>("SELECT * FROM notifications ORDER BY created_at DESC LIMIT 50");
+    res.json(rows);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
   }

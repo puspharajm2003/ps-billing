@@ -120,6 +120,26 @@ export default function Login() {
             {t('SMR Groups')}
           </span>
         </div>
+
+        {/* Icon 4: SMR Trading and Company Pondy */}
+        <div 
+          onClick={() => !isLoading && handleQuickLogin('SMR Trading and Company Pondy')}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <div style={{
+            width: '32px', height: '32px', background: '#fff', border: '1px solid #000', position: 'relative',
+            boxShadow: '2px 2px 0 rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '10px', color: '#008080'
+          }}>
+            {t('TR')}
+            <div style={{ position: 'absolute', bottom: -4, left: -4, background: '#fff', border: '1px solid #000', width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 0, height: 0, borderTop: '3px solid transparent', borderBottom: '3px solid transparent', borderLeft: '4px solid #000' }} />
+            </div>
+          </div>
+          <span style={{ color: '#fff', textShadow: '1px 1px 1px #000', fontSize: '12px', marginTop: '4px', textAlign: 'center' }}>
+            {t('SMR Trading')}<br/>{t('Pondy')}
+          </span>
+        </div>
       </div>
 
       {/* Login Dialog Box */}

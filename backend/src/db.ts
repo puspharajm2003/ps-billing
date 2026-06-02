@@ -11,7 +11,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import dotenv from 'dotenv';
 dotenv.config();
 
-const isOnline = !!process.env.VERCEL || process.env.USE_NEON === 'true';
+const isOnline = !!process.env.VERCEL || process.env.USE_NEON === 'true' || !!process.env.DATABASE_URL;
 
 const DB_FILE = path.join(__dirname, '..', 'billing.sqlite');
 let masterDb: sqlite3.Database;
@@ -31,27 +31,38 @@ function initSqliteMaster() {
 
 // Postgres dialect conversion helpers
 function convertToPgSql(sql: string): string {
+  // Detect INSERT OR IGNORE BEFORE replacing ? so we can use the flag later
+  const isInsertOrIgnore = /^\s*INSERT\s+OR\s+IGNORE\s+INTO\b/i.test(sql);
+
   let counter = 1;
   let pgSql = sql.replace(/\?/g, () => `$${counter++}`);
-  
+
+  // Convert INSERT OR IGNORE INTO → INSERT INTO  (ON CONFLICT appended below)
+  if (isInsertOrIgnore) {
+    pgSql = pgSql.replace(/\bINSERT\s+OR\s+IGNORE\s+INTO\b/i, 'INSERT INTO');
+  }
+
   // Convert SQLite date functions
   pgSql = pgSql.replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP');
-  
+
   // Cast text expires_at to timestamptz for Postgres compatibility
-  pgSql = pgSql.replace(/expires_at\s*([><=])\s*CURRENT_TIMESTAMP/gi, 'CAST(expires_at AS timestamptz) $1 CURRENT_TIMESTAMP');
-  
-  // Append RETURNING id for inserts
+  pgSql = pgSql.replace(/expires_at\s*([><= ])\s*CURRENT_TIMESTAMP/gi, 'CAST(expires_at AS timestamptz) $1 CURRENT_TIMESTAMP');
+
+  // Append RETURNING id for INSERT statements
   if (pgSql.trim().toUpperCase().startsWith('INSERT') && !pgSql.toUpperCase().includes('RETURNING')) {
-    pgSql += ' RETURNING id';
+    if (isInsertOrIgnore) {
+      // Upsert: do nothing on conflict, still return id (null if not inserted)
+      pgSql += ' ON CONFLICT DO NOTHING RETURNING id';
+    } else {
+      pgSql += ' RETURNING id';
+    }
   }
   return pgSql;
 }
 
 function convertCreateTable(sql: string): string {
-  let pgSql = sql.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
-  pgSql = pgSql.replace(/INSERT OR IGNORE INTO custom_sections \(name, slug, icon, color\) VALUES \(\?, \?, \?, \?\)/i, 
-    'INSERT INTO custom_sections (name, slug, icon, color) VALUES ($1, $2, $3, $4) ON CONFLICT (slug) DO NOTHING');
-  return pgSql;
+  // Convert SQLite AUTOINCREMENT to Postgres SERIAL
+  return sql.replace(/INTEGER PRIMARY KEY AUTOINCREMENT/gi, 'SERIAL PRIMARY KEY');
 }
 
 function getActiveDb(): sqlite3.Database | string {
@@ -89,6 +100,33 @@ export function run(sql: string, params: any[] = []): Promise<{ id: number; chan
   });
 }
 
+// Explicitly run queries on the Global/Master Database
+export function runGlobal(sql: string, params: any[] = []): Promise<{ id: number; changes: number }> {
+  return new Promise(async (resolve, reject) => {
+    if (isOnline) {
+      try {
+        const pgSql = convertCreateTable(convertToPgSql(sql));
+        if (!pgPool) throw new Error("Database not initialized.");
+        const client = await pgPool.connect();
+        try {
+          await client.query(`SET search_path TO public`);
+          const result = await client.query(pgSql, params);
+          resolve({ id: result.rows[0]?.id || 0, changes: result.rowCount || 0 });
+        } finally {
+          client.release();
+        }
+      } catch (err) {
+        reject(err);
+      }
+    } else {
+      masterDb.run(sql, params, function (err) {
+        if (err) return reject(err);
+        resolve({ id: this.lastID, changes: this.changes });
+      });
+    }
+  });
+}
+
 export function all<T>(sql: string, params: any[] = []): Promise<T[]> {
   return new Promise(async (resolve, reject) => {
     if (isOnline) {
@@ -111,6 +149,32 @@ export function all<T>(sql: string, params: any[] = []): Promise<T[]> {
       (getActiveDb() as sqlite3.Database).all(sql, params, (err, rows) => {
         if (err) return reject(err);
         resolve(rows as T[]);
+      });
+    }
+  });
+}
+
+export function allGlobal<T>(sql: string, params: any[] = []): Promise<T[]> {
+  return new Promise(async (resolve, reject) => {
+    if (isOnline) {
+      try {
+        const pgSql = convertToPgSql(sql);
+        if (!pgPool) throw new Error("Database not initialized.");
+        const client = await pgPool.connect();
+        try {
+          await client.query(`SET search_path TO public`);
+          const result = await client.query(pgSql, params);
+          resolve(result.rows as T[]);
+        } finally {
+          client.release();
+        }
+      } catch (err) {
+        reject(err);
+      }
+    } else {
+      masterDb.all(sql, params, (err, rows) => {
+        if (err) return reject(err);
+        resolve((rows || []) as T[]);
       });
     }
   });
@@ -143,6 +207,32 @@ export function get<T>(sql: string, params: any[] = []): Promise<T | null> {
   });
 }
 
+export function getGlobal<T>(sql: string, params: any[] = []): Promise<T | null> {
+  return new Promise(async (resolve, reject) => {
+    if (isOnline) {
+      try {
+        const pgSql = convertToPgSql(sql);
+        if (!pgPool) throw new Error("Database not initialized.");
+        const client = await pgPool.connect();
+        try {
+          await client.query(`SET search_path TO public`);
+          const result = await client.query(pgSql, params);
+          resolve((result.rows[0] || null) as T | null);
+        } finally {
+          client.release();
+        }
+      } catch (err) {
+        reject(err);
+      }
+    } else {
+      masterDb.get(sql, params, (err, row) => {
+        if (err) return reject(err);
+        resolve((row || null) as T | null);
+      });
+    }
+  });
+}
+
 // ==========================================
 // Initialization
 // ==========================================
@@ -150,13 +240,38 @@ export function get<T>(sql: string, params: any[] = []): Promise<T | null> {
 export async function initializeDatabase() {
   if (isOnline) {
     console.log("Initializing Neon Postgres connection...");
-    if (!process.env.DATABASE_URL) {
-      throw new Error("DATABASE_URL must be provided for online deployment.");
+    const dbUrl = process.env.DATABASE_URL || process.env.NEON_DATABASE_URL;
+    if (!dbUrl) {
+      const msg = [
+        "FATAL: No database connection string found.",
+        "For Vercel deployment, set DATABASE_URL in your Vercel project's Environment Variables.",
+        "Go to: Vercel Dashboard → Project → Settings → Environment Variables",
+        "Add: DATABASE_URL = your Neon PostgreSQL connection string",
+      ].join('\n');
+      console.error(msg);
+      throw new Error('DATABASE_URL environment variable is required for production deployment. Set it in Vercel Environment Variables.');
     }
+    // Suppress pg-connection-string deprecation warning
+    const cleanDbUrl = dbUrl.replace('sslmode=require', 'uselibpqcompat=true&sslmode=require');
+    
     pgPool = new Pool({
-      connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
+      connectionString: cleanDbUrl,
+      ssl: { rejectUnauthorized: false },
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 15000,
     });
+    // Test connection immediately so we catch misconfiguration at startup
+    try {
+      const testClient = await pgPool.connect();
+      await testClient.query('SELECT 1');
+      testClient.release();
+      console.log("Neon Postgres connection verified successfully.");
+    } catch (connErr: any) {
+      console.error("FATAL: Cannot connect to Postgres database:", connErr.message);
+      console.error("Verify DATABASE_URL is correct and the database is accessible.");
+      throw connErr;
+    }
   } else {
     initSqliteMaster();
   }
@@ -203,6 +318,19 @@ export async function initializeDatabase() {
     // Ignore error if column already exists
   }
 
+  // Notifications table (global alerts)
+  await run(`
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      tenant_name TEXT NOT NULL,
+      username TEXT NOT NULL,
+      action TEXT NOT NULL,
+      details TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      is_read INTEGER DEFAULT 0
+    )
+  `);
+
   // Ensure 'Admin' licensee exists
   const adminLicensee = await get<any>("SELECT * FROM licensees WHERE license_number = 'Admin'");
   if (!adminLicensee) {
@@ -247,14 +375,19 @@ export async function initializeDatabase() {
 
   // Seed smrtamilnadu account
   const tnUser = await get<any>("SELECT * FROM users WHERE username = 'smrtamilnadu'");
+  const tnSalt = crypto.randomBytes(16).toString('hex');
+  const tnHash = crypto.scryptSync('smrtn', tnSalt, 64).toString('hex');
   if (!tnUser) {
     console.log("Seeding smrtamilnadu account...");
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
     await run(`
       INSERT INTO users (username, password_hash, salt, role, license_number)
       VALUES (?, ?, ?, 'user', 'LIC-TAMILNADU')
-    `, ['smrtamilnadu', hash, salt]);
+    `, ['smrtamilnadu', tnHash, tnSalt]);
+  } else {
+    console.log("Updating password for smrtamilnadu...");
+    await run(`
+      UPDATE users SET password_hash = ?, salt = ? WHERE username = 'smrtamilnadu'
+    `, [tnHash, tnSalt]);
   }
 
   // Seed smrpondy account
@@ -289,6 +422,39 @@ export async function initializeDatabase() {
       INSERT INTO users (username, password_hash, salt, role, license_number)
       VALUES (?, ?, ?, 'user', 'LIC-LQGR-8ULB')
     `, ['smrgroups', hash, salt]);
+  }
+
+  // Ensure 'LIC-SMRTRADING' licensee exists
+  const tradingLicensee = await get<any>("SELECT * FROM licensees WHERE license_number = 'LIC-SMRTRADING'");
+  if (!tradingLicensee) {
+    console.log("Seeding SMR Trading licensee...");
+    await run(`
+      INSERT INTO licensees (license_number, company_name, licensee_name)
+      VALUES ('LIC-SMRTRADING', 'SMR TRADING AND COMPANY', 'SMR Trading and Company')
+    `);
+  }
+
+  // Seed SMR Trading and Company Pondy account
+  const tradingUser1 = await get<any>("SELECT * FROM users WHERE username = 'SMR Trading and Company Pondy'");
+  if (!tradingUser1) {
+    console.log("Seeding SMR Trading account 1...");
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
+    await run(`
+      INSERT INTO users (username, password_hash, salt, role, license_number)
+      VALUES (?, ?, ?, 'user', 'LIC-SMRTRADING')
+    `, ['SMR Trading and Company Pondy', hash, salt]);
+  }
+
+  const tradingUser2 = await get<any>("SELECT * FROM users WHERE username = 'smrtrading'");
+  if (!tradingUser2) {
+    console.log("Seeding SMR Trading account 2 (lowercase)...");
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
+    await run(`
+      INSERT INTO users (username, password_hash, salt, role, license_number)
+      VALUES (?, ?, ?, 'user', 'LIC-SMRTRADING')
+    `, ['smrtrading', hash, salt]);
   }
 }
 
