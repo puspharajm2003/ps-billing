@@ -37,6 +37,9 @@ function convertToPgSql(sql: string): string {
   // Convert SQLite date functions
   pgSql = pgSql.replace(/datetime\('now'\)/gi, 'CURRENT_TIMESTAMP');
   
+  // Cast text expires_at to timestamptz for Postgres compatibility
+  pgSql = pgSql.replace(/expires_at\s*([><=])\s*CURRENT_TIMESTAMP/gi, 'CAST(expires_at AS timestamptz) $1 CURRENT_TIMESTAMP');
+  
   // Append RETURNING id for inserts
   if (pgSql.trim().toUpperCase().startsWith('INSERT') && !pgSql.toUpperCase().includes('RETURNING')) {
     pgSql += ' RETURNING id';
@@ -178,7 +181,7 @@ export async function initializeDatabase() {
       token TEXT UNIQUE NOT NULL,
       user_id INTEGER NOT NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      expires_at TEXT NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
