@@ -247,7 +247,7 @@ export default function Login() {
                     cursor: 'pointer'
                   }}
                 >
-                  Download Desktop App
+                  {t('Download Desktop App')}
                 </a>
               </div>
 
