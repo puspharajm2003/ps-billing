@@ -1352,7 +1352,7 @@ if (!process.env.VERCEL) {
   app.use(express.static(frontendDistPath));
   
   // Catch-all route to serve index.html for client-side routing
-  app.get('*', (req, res, next) => {
+  app.get('*splat', (req, res, next) => {
     if (!req.path.startsWith('/api/')) {
       res.sendFile(path.join(frontendDistPath, 'index.html'));
     } else {
