@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './AuthContext';
 import Sidebar from './components/layout/Sidebar';
 import TopBar from './components/layout/TopBar';
@@ -51,6 +51,14 @@ export const API_URL = import.meta.env.PROD ? '/_/backend/api' : 'http://localho
 
 function AppContent() {
   const { isAuthenticated, isLoading, isAdmin, logout, authFetch } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isAuthenticated && !isAdmin && location.pathname === '/admin') {
+      navigate('/');
+    }
+  }, [isAuthenticated, isAdmin, location.pathname, navigate]);
 
   const [settings, setSettings] = useState<CompanySettings>({
     id: 1,
@@ -127,7 +135,7 @@ function AppContent() {
     return (
       <BasicLayout onSwitchUi={() => setUiMode('modern')} onLogout={logout} isAdmin={isAdmin} customSections={customSections}>
         <Routes>
-          <Route path="/" element={<BasicWelcome />} />
+          <Route path="/" element={<BasicWelcome settings={settings} />} />
           <Route path="/master" element={<Master />} />
           <Route path="/master/item-group" element={<Master defaultTab="item-group" />} />
           <Route path="/master/item-master" element={<Master defaultTab="item-master" />} />
