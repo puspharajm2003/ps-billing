@@ -37,17 +37,9 @@ export default function Login() {
     }
   };
 
-  const handleQuickLogin = async (usernameValue: string) => {
+  const handleQuickLogin = (usernameValue: string) => {
     setUsername(usernameValue);
-    setPassword('2003');
-    setIsLoading(true);
     setError('');
-
-    const result = await login(usernameValue, '2003');
-    if (!result.success) {
-      setError(result.error || 'Login failed');
-      setIsLoading(false);
-    }
   };
 
   return (
@@ -68,15 +60,17 @@ export default function Login() {
       
       {/* Desktop Icons */}
       <div style={{ position: 'absolute', top: '20px', left: '20px', display: 'flex', flexDirection: 'column', gap: '30px' }}>
-        {/* Icon 1 */}
+        {/* Icon 1: SMR Tamilnadu */}
         <div 
           onClick={() => !isLoading && handleQuickLogin('smrtamilnadu')}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
         >
           <div style={{
             width: '32px', height: '32px', background: '#fff', border: '1px solid #000', position: 'relative',
-            boxShadow: '2px 2px 0 rgba(0,0,0,0.5)'
+            boxShadow: '2px 2px 0 rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '10px', color: '#000080'
           }}>
+            TN
             {/* Fake shortcut arrow */}
             <div style={{ position: 'absolute', bottom: -4, left: -4, background: '#fff', border: '1px solid #000', width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 0, height: 0, borderTop: '3px solid transparent', borderBottom: '3px solid transparent', borderLeft: '4px solid #000' }} />
@@ -87,21 +81,43 @@ export default function Login() {
           </span>
         </div>
         
-        {/* Icon 2 */}
+        {/* Icon 2: SMR Pondy */}
         <div 
           onClick={() => !isLoading && handleQuickLogin('smrpondy')}
           style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
         >
           <div style={{
             width: '32px', height: '32px', background: '#fff', border: '1px solid #000', position: 'relative',
-            boxShadow: '2px 2px 0 rgba(0,0,0,0.5)'
+            boxShadow: '2px 2px 0 rgba(0,0,0,0.5)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', fontSize: '10px', color: '#800000'
           }}>
+            PY
             <div style={{ position: 'absolute', bottom: -4, left: -4, background: '#fff', border: '1px solid #000', width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <div style={{ width: 0, height: 0, borderTop: '3px solid transparent', borderBottom: '3px solid transparent', borderLeft: '4px solid #000' }} />
             </div>
           </div>
           <span style={{ color: '#fff', textShadow: '1px 1px 1px #000', fontSize: '12px', marginTop: '4px', textAlign: 'center' }}>
             {t('SMR Pondy')}
+          </span>
+        </div>
+
+        {/* Icon 3: SMR Groups */}
+        <div 
+          onClick={() => !isLoading && handleQuickLogin('smrgroups')}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', cursor: 'pointer' }}
+        >
+          <div style={{
+            width: '32px', height: '32px', background: '#fff', border: '1px solid #000', position: 'relative',
+            boxShadow: '2px 2px 0 rgba(0,0,0,0.5)',
+            overflow: 'hidden'
+          }}>
+            <img src="/logo.jpg" alt="SMR Groups" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{ position: 'absolute', bottom: -4, left: -4, background: '#fff', border: '1px solid #000', width: 12, height: 12, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 0, height: 0, borderTop: '3px solid transparent', borderBottom: '3px solid transparent', borderLeft: '4px solid #000' }} />
+            </div>
+          </div>
+          <span style={{ color: '#fff', textShadow: '1px 1px 1px #000', fontSize: '12px', marginTop: '4px', textAlign: 'center' }}>
+            {t('SMR Groups')}
           </span>
         </div>
       </div>

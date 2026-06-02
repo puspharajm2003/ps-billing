@@ -268,6 +268,28 @@ export async function initializeDatabase() {
       VALUES (?, ?, ?, 'user', 'LIC-PONDY')
     `, ['smrpondy', hash, salt]);
   }
+
+  // Ensure 'LIC-LQGR-8ULB' licensee exists
+  const groupsLicensee = await get<any>("SELECT * FROM licensees WHERE license_number = 'LIC-LQGR-8ULB'");
+  if (!groupsLicensee) {
+    console.log("Seeding default Groups licensee...");
+    await run(`
+      INSERT INTO licensees (license_number, company_name, licensee_name)
+      VALUES ('LIC-LQGR-8ULB', 'SMR Groups', 'SMR Groups')
+    `);
+  }
+
+  // Seed smrgroups account
+  const groupsUser = await get<any>("SELECT * FROM users WHERE username = 'smrgroups'");
+  if (!groupsUser) {
+    console.log("Seeding smrgroups account...");
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
+    await run(`
+      INSERT INTO users (username, password_hash, salt, role, license_number)
+      VALUES (?, ?, ?, 'user', 'LIC-LQGR-8ULB')
+    `, ['smrgroups', hash, salt]);
+  }
 }
 
 // ==========================================
