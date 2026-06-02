@@ -100,12 +100,8 @@ export const BasicWelcome: React.FC<BasicWelcomeProps> = ({ settings }) => {
           <tbody>
             <tr>
               <td style={{ width: '160px', background: '#808080', color: '#fff', padding: '5px 8px', fontWeight: 'bold', border: '1px solid #c0c0c0' }}>{t('Brand Name')}</td>
-              <td className="classic-bevel-in" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #808080', fontWeight: 'bold' }}>
+              <td className="classic-bevel-in" colSpan={3} style={{ padding: '5px 8px', background: '#fff', border: '1px solid #808080', fontWeight: 'bold' }}>
                 {settings.company_name}
-              </td>
-              <td style={{ width: '150px', background: '#808080', color: '#fff', padding: '5px 8px', fontWeight: 'bold', border: '1px solid #c0c0c0' }}>{t('License Number')}</td>
-              <td className="classic-bevel-in" style={{ padding: '5px 8px', background: '#fff', border: '1px solid #808080', fontFamily: 'monospace', fontWeight: 'bold' }}>
-                {user?.license_number || 'N/A'}
               </td>
             </tr>
             <tr>
