@@ -213,6 +213,25 @@ export async function initializeDatabase() {
     `);
   }
 
+  // Ensure 'LIC-TAMILNADU' and 'LIC-PONDY' licensees exist
+  const tnLicensee = await get<any>("SELECT * FROM licensees WHERE license_number = 'LIC-TAMILNADU'");
+  if (!tnLicensee) {
+    console.log("Seeding default Tamilnadu licensee...");
+    await run(`
+      INSERT INTO licensees (license_number, company_name, licensee_name)
+      VALUES ('LIC-TAMILNADU', 'SMR Groups Tamilnadu', 'SMR Tamilnadu')
+    `);
+  }
+
+  const pondyLicensee = await get<any>("SELECT * FROM licensees WHERE license_number = 'LIC-PONDY'");
+  if (!pondyLicensee) {
+    console.log("Seeding default Pondy licensee...");
+    await run(`
+      INSERT INTO licensees (license_number, company_name, licensee_name)
+      VALUES ('LIC-PONDY', 'SMR Groups Pondy', 'SMR Pondy')
+    `);
+  }
+
   // Seed default super-admin account
   const adminCount = await get<{ count: number | string }>("SELECT COUNT(*) as count FROM users");
   const countNum = parseInt((adminCount?.count || 0).toString());
@@ -224,6 +243,30 @@ export async function initializeDatabase() {
       INSERT INTO users (username, password_hash, salt, role, license_number)
       VALUES (?, ?, ?, 'admin', 'Admin')
     `, ['puspharaj', hash, salt]);
+  }
+
+  // Seed smrtamilnadu account
+  const tnUser = await get<any>("SELECT * FROM users WHERE username = 'smrtamilnadu'");
+  if (!tnUser) {
+    console.log("Seeding smrtamilnadu account...");
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
+    await run(`
+      INSERT INTO users (username, password_hash, salt, role, license_number)
+      VALUES (?, ?, ?, 'user', 'LIC-TAMILNADU')
+    `, ['smrtamilnadu', hash, salt]);
+  }
+
+  // Seed smrpondy account
+  const pondyUser = await get<any>("SELECT * FROM users WHERE username = 'smrpondy'");
+  if (!pondyUser) {
+    console.log("Seeding smrpondy account...");
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
+    await run(`
+      INSERT INTO users (username, password_hash, salt, role, license_number)
+      VALUES (?, ?, ?, 'user', 'LIC-PONDY')
+    `, ['smrpondy', hash, salt]);
   }
 }
 
