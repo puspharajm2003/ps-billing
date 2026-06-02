@@ -57,18 +57,18 @@ export const BasicWelcome: React.FC<BasicWelcomeProps> = ({ settings }) => {
               <img src="/logo.jpg" alt="SMR Groups" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : isTN ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: '#000080', color: '#fff', fontWeight: 'bold' }}>
-                <span style={{ fontSize: '1.4rem', letterSpacing: '1px' }}>SMR</span>
-                <span style={{ fontSize: '0.6rem', background: '#ff4c4c', padding: '1px 3px', marginTop: '1px' }}>TAMILNADU</span>
+                <span style={{ fontSize: '1.4rem', letterSpacing: '1px' }}>{t('SMR')}</span>
+                <span style={{ fontSize: '0.6rem', background: '#ff4c4c', padding: '1px 3px', marginTop: '1px' }}>{t('TAMILNADU')}</span>
               </div>
             ) : isPondy ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: '#800000', color: '#fff', fontWeight: 'bold' }}>
-                <span style={{ fontSize: '1.4rem', letterSpacing: '1px' }}>SMR</span>
-                <span style={{ fontSize: '0.6rem', background: '#e68a00', padding: '1px 3px', marginTop: '1px', color: '#000' }}>PONDY</span>
+                <span style={{ fontSize: '1.4rem', letterSpacing: '1px' }}>{t('SMR')}</span>
+                <span style={{ fontSize: '0.6rem', background: '#e68a00', padding: '1px 3px', marginTop: '1px', color: '#000' }}>{t('PONDY')}</span>
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%', background: '#808080', color: '#fff', fontWeight: 'bold' }}>
-                <span style={{ fontSize: '1.4rem' }}>SMR</span>
-                <span style={{ fontSize: '0.6rem' }}>OFFLINE</span>
+                <span style={{ fontSize: '1.4rem' }}>{t('SMR')}</span>
+                <span style={{ fontSize: '0.6rem' }}>{t('OFFLINE')}</span>
               </div>
             )}
           </div>
