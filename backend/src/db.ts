@@ -22,7 +22,15 @@ function getDbBasePath(): string {
     && (process as any).resourcesPath
     && !(process as any).resourcesPath.includes('node_modules');
   if (isPackaged) {
-    return (process as any).resourcesPath;
+    try {
+      const { app } = require('electron');
+      if (app) {
+        return app.getPath('userData');
+      }
+    } catch (e) {
+      // ignore
+    }
+    return process.env.APPDATA ? path.join(process.env.APPDATA, 'SMR Groups Billing') : (process as any).resourcesPath;
   }
   // Development: databases live in the backend/ directory
   return path.join(__dirname, '..');
@@ -39,6 +47,23 @@ const tenantDbs = new Map<string, sqlite3.Database | string>();
 // SQLite Helpers
 function initSqliteMaster() {
   console.log("Initializing Master SQLite database at", DB_FILE);
+  
+  const isPackaged = typeof process !== 'undefined'
+    && (process as any).resourcesPath
+    && !(process as any).resourcesPath.includes('node_modules');
+
+  if (isPackaged) {
+    if (!fs.existsSync(DB_FILE)) {
+      const sourceDb = path.join((process as any).resourcesPath, 'billing.sqlite');
+      if (fs.existsSync(sourceDb)) {
+        const dir = path.dirname(DB_FILE);
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        fs.copyFileSync(sourceDb, DB_FILE);
+        console.log("Copied initial database to userData folder");
+      }
+    }
+  }
+
   masterDb = new sqlite3.Database(DB_FILE);
   masterDb.serialize(() => {
     masterDb.run("PRAGMA foreign_keys = ON;");
