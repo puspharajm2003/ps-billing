@@ -1665,19 +1665,33 @@ if (!process.env.VERCEL) {
 // ==========================================
 // SERVER INITIALIZATION
 // ==========================================
-if (!process.env.VERCEL) {
-  initializeDatabase()
-    .then(() => {
-      app.listen(PORT, () => {
-        console.log(`PS-billing Server is running on port ${PORT}`);
+
+// Start the Express server; returns a promise that resolves with the http.Server
+// once the DB is initialised and the server is listening.
+export function startServer(port?: number | string): Promise<import('http').Server> {
+  const listenPort = port || PORT;
+  return initializeDatabase().then(() => {
+    return new Promise<import('http').Server>((resolve) => {
+      const server = app.listen(listenPort, () => {
+        console.log(`PS-billing Server is running on port ${listenPort}`);
+        resolve(server);
       });
-    })
-    .catch((err) => {
-      console.error("Database initialization failed", err);
     });
+  });
+}
+
+if (process.env.ELECTRON) {
+  // Running inside Electron — main.js will call startServer() explicitly
+  console.log('Backend loaded by Electron. Waiting for startServer() call...');
+} else if (!process.env.VERCEL) {
+  // Standalone development server
+  startServer().catch((err) => {
+    console.error("Database initialization failed", err);
+  });
 } else {
   // Initialize DB asynchronously without blocking module export for Vercel
   initializeDatabase().catch(err => console.error("Database initialization failed", err));
 }
 
 export default app;
+

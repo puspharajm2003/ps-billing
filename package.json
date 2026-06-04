@@ -1,6 +1,6 @@
 {
   "name": "smr-groups-billing",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "SMR Groups Billing Software — Unified launcher for backend and frontend",
   "main": "main.js",
   "scripts": {
@@ -28,8 +28,13 @@
       "main.js",
       "backend/dist/**/*",
       "backend/package.json",
-      "frontend/dist/**/*",
-      "billing.sqlite"
+      "backend/node_modules/**/*",
+      "frontend/dist/**/*"
+    ],
+    "asarUnpack": [
+      "**/*.node",
+      "node_modules/sqlite3/**",
+      "backend/node_modules/sqlite3/**"
     ],
     "extraResources": [
       {
@@ -59,6 +64,7 @@
   "author": "Puspharaj M",
   "license": "ISC",
   "devDependencies": {
+    "@electron/rebuild": "^3.7.1",
     "concurrently": "10.0.1",
     "cross-env": "10.1.0",
     "electron": "42.3.0",

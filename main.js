@@ -1,9 +1,10 @@
 const { app, BrowserWindow, Menu } = require('electron');
 const path = require('path');
-const { spawn } = require('child_process');
 
 let mainWindow;
-let backendProcess;
+
+// Determine if running from a packaged app or in development
+const isPackaged = app.isPackaged;
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -13,45 +14,50 @@ function createWindow() {
       nodeIntegration: false,
       contextIsolation: true
     },
-    icon: path.join(__dirname, 'frontend/public/logo.jpg'), // or use an .ico file for Windows
-    title: "SMR Groups Billing"
+    icon: isPackaged
+      ? path.join(process.resourcesPath, 'app.asar.unpacked', 'frontend', 'public', 'logo.jpg')
+      : path.join(__dirname, 'frontend', 'public', 'logo.jpg'),
+    title: "SMR Groups Billing",
+    show: false // Don't show until ready
   });
 
   // Remove default menu for a cleaner look
   Menu.setApplicationMenu(null);
 
   mainWindow.loadURL('http://localhost:5000');
+
+  mainWindow.once('ready-to-show', () => {
+    mainWindow.show();
+  });
 }
 
-app.whenReady().then(() => {
-  // Enforce offline variables for the child process
-  const backendEnv = {
-    ...process.env,
-    VERCEL: '',          // Disable Vercel mode
-    USE_NEON: 'false',   // Force SQLite
-    PORT: '5000'         // Run on exactly 5000
-  };
+app.whenReady().then(async () => {
+  // Set environment variables BEFORE requiring the backend
+  process.env.ELECTRON = '1';
+  process.env.VERCEL = '';
+  process.env.USE_NEON = 'false';
+  process.env.PORT = '5000';
 
-  // Start the backend process
-  const backendPath = path.join(__dirname, 'backend', 'dist', 'index.js');
-  backendProcess = spawn('node', [backendPath], { env: backendEnv });
+  try {
+    // Require the compiled backend — this runs inside Electron's Node.js runtime,
+    // so there is no dependency on the user having Node.js installed.
+    const backend = require('./backend/dist/index.js');
 
-  backendProcess.stdout.on('data', (data) => {
-    console.log(`Backend: ${data}`);
-  });
+    // Start the Express server and wait for it to be ready
+    const server = await backend.startServer('5000');
+    console.log('Backend server is ready. Opening window...');
 
-  backendProcess.stderr.on('data', (data) => {
-    console.error(`Backend Error: ${data}`);
-  });
-
-  backendProcess.on('exit', () => {
-    app.quit();
-  });
-
-  // Wait a moment for Express to initialize SQLite and bind to port
-  setTimeout(() => {
     createWindow();
-  }, 2500);
+  } catch (err) {
+    console.error('Failed to start backend server:', err);
+    // Show an error dialog to the user
+    const { dialog } = require('electron');
+    dialog.showErrorBox(
+      'Startup Error',
+      `The application failed to start.\n\n${err.message}\n\nPlease try reinstalling the application.`
+    );
+    app.quit();
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -63,12 +69,5 @@ app.whenReady().then(() => {
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit();
-  }
-});
-
-app.on('quit', () => {
-  // Ensure the backend process is killed when the electron app closes
-  if (backendProcess) {
-    backendProcess.kill();
   }
 });

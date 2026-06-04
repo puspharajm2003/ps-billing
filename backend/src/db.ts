@@ -13,7 +13,23 @@ dotenv.config();
 
 const isOnline = !!process.env.VERCEL || process.env.USE_NEON === 'true' || !!process.env.DATABASE_URL;
 
-const DB_FILE = path.join(__dirname, '..', 'billing.sqlite');
+// Resolve the writable directory for SQLite databases.
+// In a packaged Electron app __dirname is inside the read-only ASAR archive,
+// so we use process.resourcesPath which points to the extracted resources.
+function getDbBasePath(): string {
+  // Check if running inside a packaged Electron app
+  const isPackaged = typeof process !== 'undefined'
+    && process.resourcesPath
+    && !process.resourcesPath.includes('node_modules');
+  if (isPackaged) {
+    return process.resourcesPath;
+  }
+  // Development: databases live in the backend/ directory
+  return path.join(__dirname, '..');
+}
+
+const DB_BASE = getDbBasePath();
+const DB_FILE = path.join(DB_BASE, 'billing.sqlite');
 let masterDb: sqlite3.Database;
 let pgPool: Pool;
 
@@ -510,7 +526,7 @@ export async function getTenantDb(userId: number): Promise<sqlite3.Database | st
       throw new Error("Invalid database filename pattern");
     }
     
-    const basePath = path.normalize(path.join(__dirname, '..'));
+    const basePath = path.normalize(DB_BASE);
     const fullPath = path.normalize(path.join(basePath, dbName));
     
     if (!fullPath.startsWith(basePath)) {
