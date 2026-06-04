@@ -1109,6 +1109,77 @@ app.delete('/api/expenses-groups/:id', async (req, res) => {
   }
 });
 
+// Daily Expenses
+app.get('/api/daily-expenses', async (req, res) => {
+  try {
+    const rows = await all<any>("SELECT * FROM daily_expenses ORDER BY ref_no ASC");
+    res.json(rows);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/daily-expenses', async (req, res) => {
+  try {
+    const { ref_no, ref_date, expenses_group, amount, narration } = req.body;
+    const result = await run(
+      "INSERT INTO daily_expenses (ref_no, ref_date, expenses_group, amount, narration) VALUES (?, ?, ?, ?, ?)",
+      [ref_no, ref_date, expenses_group, amount, narration]
+    );
+    res.status(201).json(await get<any>("SELECT * FROM daily_expenses WHERE id = ?", [result.id]));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/daily-expenses/:id', async (req, res) => {
+  try {
+    const { ref_no, ref_date, expenses_group, amount, narration } = req.body;
+    await run(
+      "UPDATE daily_expenses SET ref_no = ?, ref_date = ?, expenses_group = ?, amount = ?, narration = ? WHERE id = ?",
+      [ref_no, ref_date, expenses_group, amount, narration, req.params.id]
+    );
+    res.json(await get<any>("SELECT * FROM daily_expenses WHERE id = ?", [req.params.id]));
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/daily-expenses/:id', async (req, res) => {
+  try {
+    await run("DELETE FROM daily_expenses WHERE id = ?", [req.params.id]);
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Mock GST Lookup
+app.get('/api/gst-lookup/:gstin', async (req, res) => {
+  try {
+    const gstin = req.params.gstin;
+    // For demonstration, return simulated company details based on the GSTIN.
+    // In production, you would call a real API (like ClearTax, Razorpay, or API Setu) here.
+    if (gstin.length !== 15) {
+      return res.status(400).json({ error: "Invalid GSTIN length" });
+    }
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 800));
+
+    res.json({
+      gstin: gstin,
+      company_name: "Mock Company for " + gstin,
+      address: "123 Mock Street, Mock City",
+      state: "Tamil Nadu",
+      state_code: "33",
+      pan: gstin.substring(2, 12)
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ==========================================
 // 4. ITEMS (WEG MOTORS) ENDPOINTS
 // ==========================================

@@ -16,7 +16,9 @@ const menuItems = [
   { path: '/weg-stock', name: 'Weg Stock', icon: <Package size={20} /> },
   { path: '/daily-expenses', name: 'Daily Expenses', icon: <CreditCard size={20} /> },
   { path: '/reports', name: 'Reports', icon: <BarChart2 size={20} /> },
-  { path: '/gst-reports', name: 'GST Reports', icon: <FileBarChart size={20} /> },
+  { path: '/reports/purchase', name: 'Purchase Statement', icon: <FileText size={20} /> },
+  { path: '/reports/sales', name: 'Sales Statement', icon: <FileText size={20} /> },
+  { path: '/reports/gst', name: 'GST Reports', icon: <FileBarChart size={20} /> },
   { path: '/settings', name: 'Settings', icon: <Settings size={20} /> },
 ];
 

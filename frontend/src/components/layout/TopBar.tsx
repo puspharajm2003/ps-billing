@@ -48,7 +48,7 @@ export const TopBar: React.FC<TopBarProps> = ({ companyName, gstin, onSwitchUi, 
     case '/reports':
       title = 'Financial Intelligence Reports';
       break;
-    case '/gst-reports':
+    case '/reports/gst':
       title = 'GST Returns & Audit Registers';
       break;
     case '/settings':

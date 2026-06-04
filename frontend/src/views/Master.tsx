@@ -61,6 +61,45 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
 
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const handleGstinChange = async (val: string, formType: 'customer' | 'supplier') => {
+    const uppercased = val.toUpperCase();
+    if (formType === 'customer') {
+      setCustomerForm(prev => ({ ...prev, gstin: uppercased }));
+    } else {
+      setSupplierForm(prev => ({ ...prev, gstin: uppercased }));
+    }
+    
+    if (uppercased.length === 15) {
+      try {
+        const res = await authFetch(`${API_URL}/gst-lookup/${uppercased}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (confirm(`GST Details Found:\nCompany: ${data.company_name}\nAddress: ${data.address}\n\nApply to form?`)) {
+            if (formType === 'customer') {
+              setCustomerForm(prev => ({
+                ...prev,
+                name: data.company_name || prev.name,
+                address: data.address || prev.address,
+                state: data.state || prev.state,
+                state_code: data.state_code || prev.state_code
+              }));
+            } else {
+              setSupplierForm(prev => ({
+                ...prev,
+                name: data.company_name || prev.name,
+                address: data.address || prev.address,
+                state: data.state || prev.state,
+                state_code: data.state_code || prev.state_code
+              }));
+            }
+          }
+        }
+      } catch (err) {
+        console.error("GST Lookup failed", err);
+      }
+    }
+  };
+
   // Fetch data
   const fetchData = async () => {
     setLoading(true);
@@ -393,7 +432,8 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
           </div>
           <div className="form-group">
             <label>{t('GSTIN')}</label>
-            <input type="text" className="form-control" value={form.gstin || ''} onChange={e => setForm({...form, gstin: e.target.value})} placeholder="e.g. 37XXXXX1234X1ZX" />
+            <input type="text" className="form-control" value={form.gstin || ''} onChange={e => handleGstinChange(e.target.value, editingType === 'customer-master' ? 'customer' : 'supplier')} placeholder="e.g. 37XXXXX1234X1ZX" maxLength={15} />
+            <small className="text-secondary" style={{ fontSize: '0.75rem', marginTop: '4px' }}>{t('Enter 15-digit GSTIN to auto-fill details')}</small>
           </div>
           <div className="form-group">
             <label>{t('Opening Balance')}</label>

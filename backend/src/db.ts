@@ -764,6 +764,19 @@ export async function initializeTenantDatabase() {
       FOREIGN KEY (invoice_id) REFERENCES invoices(id) ON DELETE SET NULL
     )
   `);
+
+  // 8. Daily Expenses table
+  await run(`
+    CREATE TABLE IF NOT EXISTS daily_expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ref_no TEXT UNIQUE NOT NULL,
+      ref_date TEXT NOT NULL,
+      expenses_group TEXT NOT NULL,
+      amount REAL NOT NULL,
+      narration TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 }
 
 export async function migrateTenantDatabase() {
@@ -804,6 +817,7 @@ export async function migrateTenantDatabase() {
     "ALTER TABLE invoices ADD COLUMN converted_from_quotation_id INTEGER",
     "ALTER TABLE invoices ADD COLUMN custom_section_slug TEXT",
     "ALTER TABLE settings ADD COLUMN custom_print_layout TEXT",
+    "ALTER TABLE items ADD COLUMN low_stock_threshold REAL DEFAULT 2",
   ];
   for (const sql of safeMigrations) {
     try { await run(sql); } catch (_) { /* column already exists */ }
@@ -823,6 +837,19 @@ export async function migrateTenantDatabase() {
       notes TEXT,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (item_id) REFERENCES items(id)
+    )
+  `);
+
+  // 13. Daily Expenses table
+  await run(`
+    CREATE TABLE IF NOT EXISTS daily_expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ref_no TEXT UNIQUE NOT NULL,
+      ref_date TEXT NOT NULL,
+      expenses_group TEXT NOT NULL,
+      amount REAL NOT NULL,
+      narration TEXT,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
 
