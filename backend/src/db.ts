@@ -19,10 +19,10 @@ const isOnline = !!process.env.VERCEL || process.env.USE_NEON === 'true' || !!pr
 function getDbBasePath(): string {
   // Check if running inside a packaged Electron app
   const isPackaged = typeof process !== 'undefined'
-    && process.resourcesPath
-    && !process.resourcesPath.includes('node_modules');
+    && (process as any).resourcesPath
+    && !(process as any).resourcesPath.includes('node_modules');
   if (isPackaged) {
-    return process.resourcesPath;
+    return (process as any).resourcesPath;
   }
   // Development: databases live in the backend/ directory
   return path.join(__dirname, '..');
