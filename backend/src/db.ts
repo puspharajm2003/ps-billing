@@ -408,14 +408,19 @@ export async function initializeDatabase() {
 
   // Seed smrpondy account
   const pondyUser = await get<any>("SELECT * FROM users WHERE username = 'smrpondy'");
+  const pondySalt = crypto.randomBytes(16).toString('hex');
+  const pondyHash = crypto.scryptSync('2003', pondySalt, 64).toString('hex');
   if (!pondyUser) {
     console.log("Seeding smrpondy account...");
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
     await run(`
       INSERT INTO users (username, password_hash, salt, role, license_number)
       VALUES (?, ?, ?, 'user', 'LIC-PONDY')
-    `, ['smrpondy', hash, salt]);
+    `, ['smrpondy', pondyHash, pondySalt]);
+  } else {
+    console.log("Updating password for smrpondy...");
+    await run(`
+      UPDATE users SET password_hash = ?, salt = ? WHERE username = 'smrpondy'
+    `, [pondyHash, pondySalt]);
   }
 
   // Ensure 'LIC-LQGR-8ULB' licensee exists
@@ -430,14 +435,19 @@ export async function initializeDatabase() {
 
   // Seed smrgroups account
   const groupsUser = await get<any>("SELECT * FROM users WHERE username = 'smrgroups'");
+  const groupsSalt = crypto.randomBytes(16).toString('hex');
+  const groupsHash = crypto.scryptSync('2003', groupsSalt, 64).toString('hex');
   if (!groupsUser) {
     console.log("Seeding smrgroups account...");
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
     await run(`
       INSERT INTO users (username, password_hash, salt, role, license_number)
       VALUES (?, ?, ?, 'user', 'LIC-LQGR-8ULB')
-    `, ['smrgroups', hash, salt]);
+    `, ['smrgroups', groupsHash, groupsSalt]);
+  } else {
+    console.log("Updating password for smrgroups...");
+    await run(`
+      UPDATE users SET password_hash = ?, salt = ? WHERE username = 'smrgroups'
+    `, [groupsHash, groupsSalt]);
   }
 
   // Ensure 'LIC-SMRTRADING' licensee exists
@@ -452,25 +462,35 @@ export async function initializeDatabase() {
 
   // Seed SMR Trading and Company Pondy account
   const tradingUser1 = await get<any>("SELECT * FROM users WHERE username = 'SMR Trading and Company Pondy'");
+  const tradingSalt1 = crypto.randomBytes(16).toString('hex');
+  const tradingHash1 = crypto.scryptSync('2003', tradingSalt1, 64).toString('hex');
   if (!tradingUser1) {
     console.log("Seeding SMR Trading account 1...");
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
     await run(`
       INSERT INTO users (username, password_hash, salt, role, license_number)
       VALUES (?, ?, ?, 'user', 'LIC-SMRTRADING')
-    `, ['SMR Trading and Company Pondy', hash, salt]);
+    `, ['SMR Trading and Company Pondy', tradingHash1, tradingSalt1]);
+  } else {
+    console.log("Updating password for SMR Trading and Company Pondy...");
+    await run(`
+      UPDATE users SET password_hash = ?, salt = ? WHERE username = 'SMR Trading and Company Pondy'
+    `, [tradingHash1, tradingSalt1]);
   }
 
   const tradingUser2 = await get<any>("SELECT * FROM users WHERE username = 'smrtrading'");
+  const tradingSalt2 = crypto.randomBytes(16).toString('hex');
+  const tradingHash2 = crypto.scryptSync('2003', tradingSalt2, 64).toString('hex');
   if (!tradingUser2) {
     console.log("Seeding SMR Trading account 2 (lowercase)...");
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync('2003', salt, 64).toString('hex');
     await run(`
       INSERT INTO users (username, password_hash, salt, role, license_number)
       VALUES (?, ?, ?, 'user', 'LIC-SMRTRADING')
-    `, ['smrtrading', hash, salt]);
+    `, ['smrtrading', tradingHash2, tradingSalt2]);
+  } else {
+    console.log("Updating password for smrtrading...");
+    await run(`
+      UPDATE users SET password_hash = ?, salt = ? WHERE username = 'smrtrading'
+    `, [tradingHash2, tradingSalt2]);
   }
 }
 
