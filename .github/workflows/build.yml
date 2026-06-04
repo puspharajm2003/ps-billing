@@ -9,6 +9,9 @@ on:
 permissions:
   contents: write
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 jobs:
   build:
     runs-on: windows-2022
@@ -31,12 +34,13 @@ jobs:
           echo "tag=v$version" >> $env:GITHUB_OUTPUT
 
       - name: Install dependencies and build
+        shell: pwsh
         run: |
           npm install
-          cd frontend
+          Set-Location frontend
           npm install
           npm run build
-          cd ../backend
+          Set-Location ..\backend
           npm install
           npm run build
 
@@ -52,27 +56,43 @@ jobs:
           VERSION: ${{ steps.pkg.outputs.version }}
           TAG: ${{ steps.pkg.outputs.tag }}
         run: |
-          $exeFile = Get-ChildItem -Path "dist" -Filter "*.exe" | Where-Object { $_.Name -notlike "*blockmap*" } | Select-Object -First 1
+          # Find the installer .exe (exclude blockmap files)
+          $exeFile = Get-ChildItem -Path "dist" -Filter "*.exe" |
+                     Where-Object { $_.Name -notlike "*blockmap*" } |
+                     Select-Object -First 1
+
           if (-not $exeFile) {
-            Write-Error "No .exe file found in dist/ directory!"
+            Write-Host "::error::No .exe file found in dist/ directory!"
+            Write-Host "Contents of dist/:"
+            Get-ChildItem -Path "dist" -Recurse | ForEach-Object { Write-Host $_.FullName }
             exit 1
           }
-          Write-Host "Found installer: $($exeFile.FullName)"
 
-          # Check if release exists for this tag
-          $releaseJson = gh release view $TAG --json id 2>$null
-          if ($LASTEXITCODE -ne 0) {
-            Write-Host "Release $TAG not found. Creating a new draft release..."
-            gh release create $TAG `
-              --title "SMR Groups Billing System v$VERSION" `
-              --notes "Desktop installer for SMR Groups Billing System v$VERSION" `
-              --draft
+          Write-Host "Found installer: $($exeFile.FullName)"
+          Write-Host "File size: $([math]::Round($exeFile.Length / 1MB, 2)) MB"
+
+          # Delete existing release for this tag if it exists (clean slate)
+          Write-Host "Checking for existing release $env:TAG ..."
+          gh release view $env:TAG 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Existing release found. Deleting it to recreate with latest build..."
+            gh release delete $env:TAG --yes --cleanup-tag 2>$null
+            # Small delay to allow GitHub to process the deletion
+            Start-Sleep -Seconds 3
+          } else {
+            Write-Host "No existing release for $env:TAG."
           }
 
-          Write-Host "Uploading $($exeFile.Name) to release $TAG ..."
-          gh release upload $TAG "$($exeFile.FullName)" --clobber
-          Write-Host "Upload complete!"
+          # Create new release with the .exe attached
+          Write-Host "Creating release $env:TAG and uploading $($exeFile.Name) ..."
+          gh release create $env:TAG "$($exeFile.FullName)" `
+            --title "SMR Groups Billing System v$env:VERSION" `
+            --notes "Desktop installer for SMR Groups Billing System v$env:VERSION`n`nDownload the .exe file below to install." `
+            --latest
 
-          # Publish the release if it was a draft
-          gh release edit $TAG --draft=false 2>$null
-          Write-Host "Release $TAG is now published."
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "::error::Failed to create release and upload asset."
+            exit 1
+          }
+
+          Write-Host "Release $env:TAG created and published successfully!"
