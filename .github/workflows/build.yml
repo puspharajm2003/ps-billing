@@ -1,4 +1,4 @@
-name: Build Desktop App
+name: Build & Release Desktop App
 
 on:
   push:
@@ -22,6 +22,14 @@ jobs:
         with:
           node-version: 18
 
+      - name: Read version from package.json
+        id: pkg
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          echo "version=$version" >> $env:GITHUB_OUTPUT
+          echo "tag=v$version" >> $env:GITHUB_OUTPUT
+
       - name: Install dependencies and build
         run: |
           npm install
@@ -32,7 +40,39 @@ jobs:
           npm install
           npm run build
 
-      - name: Build and Publish Electron App
-        run: npx electron-builder --win --publish always
+      - name: Build Electron installer (no auto-publish)
+        run: npx electron-builder --win --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or update GitHub Release and upload .exe
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+          TAG: ${{ steps.pkg.outputs.tag }}
+        run: |
+          $exeFile = Get-ChildItem -Path "dist" -Filter "*.exe" | Where-Object { $_.Name -notlike "*blockmap*" } | Select-Object -First 1
+          if (-not $exeFile) {
+            Write-Error "No .exe file found in dist/ directory!"
+            exit 1
+          }
+          Write-Host "Found installer: $($exeFile.FullName)"
+
+          # Check if release exists for this tag
+          $releaseJson = gh release view $TAG --json id 2>$null
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "Release $TAG not found. Creating a new draft release..."
+            gh release create $TAG `
+              --title "SMR Groups Billing System v$VERSION" `
+              --notes "Desktop installer for SMR Groups Billing System v$VERSION" `
+              --draft
+          }
+
+          Write-Host "Uploading $($exeFile.Name) to release $TAG ..."
+          gh release upload $TAG "$($exeFile.FullName)" --clobber
+          Write-Host "Upload complete!"
+
+          # Publish the release if it was a draft
+          gh release edit $TAG --draft=false 2>$null
+          Write-Host "Release $TAG is now published."
