@@ -65,6 +65,7 @@ export interface Item {
   gst_rate: number; // e.g. 18 (default for motors)
   created_at?: string;
   is_deleted?: number;
+  type?: string; // 'motor' or 'general'
 }
 
 export type InvoiceType = 'sales' | 'purchase' | 'quotation';

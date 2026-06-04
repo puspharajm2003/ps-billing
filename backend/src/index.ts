@@ -1201,17 +1201,17 @@ app.post('/api/items', async (req, res) => {
       await run(`
         UPDATE items SET
           name = ?, brand = ?, description = ?, hp = ?, rpm = ?, poles = ?, phase = ?, frame = ?, volts = ?,
-          purchase_price = ?, sales_price = ?, stock_qty = ?, low_stock_threshold = ?, gst_rate = ?, is_deleted = 0
+          purchase_price = ?, sales_price = ?, stock_qty = ?, low_stock_threshold = ?, gst_rate = ?, type = ?, is_deleted = 0
         WHERE id = ?
-      `, [i.name, i.brand, i.description, i.hp, i.rpm, i.poles, i.phase, i.frame, i.volts, i.purchase_price, i.sales_price, i.stock_qty, i.low_stock_threshold, i.gst_rate, existingArchived.id]);
+      `, [i.name, i.brand, i.description, i.hp, i.rpm, i.poles, i.phase, i.frame, i.volts, i.purchase_price, i.sales_price, i.stock_qty, i.low_stock_threshold, i.gst_rate, i.type || 'motor', existingArchived.id]);
       const restoredItem = await get<Item>("SELECT * FROM items WHERE id = ?", [existingArchived.id]);
       return res.status(201).json(restoredItem);
     }
 
     const result = await run(`
-      INSERT INTO items (code, name, brand, description, hp, rpm, poles, phase, frame, volts, purchase_price, sales_price, stock_qty, low_stock_threshold, gst_rate)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [i.code, i.name, i.brand, i.description, i.hp, i.rpm, i.poles, i.phase, i.frame, i.volts, i.purchase_price, i.sales_price, i.stock_qty, i.low_stock_threshold, i.gst_rate]);
+      INSERT INTO items (code, name, brand, description, hp, rpm, poles, phase, frame, volts, purchase_price, sales_price, stock_qty, low_stock_threshold, gst_rate, type)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, [i.code, i.name, i.brand, i.description, i.hp, i.rpm, i.poles, i.phase, i.frame, i.volts, i.purchase_price, i.sales_price, i.stock_qty, i.low_stock_threshold, i.gst_rate, i.type || 'motor']);
     const newItem = await get<Item>("SELECT * FROM items WHERE id = ?", [result.id]);
     res.status(201).json(newItem);
   } catch (err: any) {
@@ -1226,9 +1226,9 @@ app.put('/api/items/:id', async (req, res) => {
     await run(`
       UPDATE items SET
         code = ?, name = ?, brand = ?, description = ?, hp = ?, rpm = ?, poles = ?, phase = ?, frame = ?, volts = ?,
-        purchase_price = ?, sales_price = ?, stock_qty = ?, low_stock_threshold = ?, gst_rate = ?
+        purchase_price = ?, sales_price = ?, stock_qty = ?, low_stock_threshold = ?, gst_rate = ?, type = ?
       WHERE id = ?
-    `, [i.code, i.name, i.brand, i.description, i.hp, i.rpm, i.poles, i.phase, i.frame, i.volts, i.purchase_price, i.sales_price, i.stock_qty, i.low_stock_threshold, i.gst_rate, id]);
+    `, [i.code, i.name, i.brand, i.description, i.hp, i.rpm, i.poles, i.phase, i.frame, i.volts, i.purchase_price, i.sales_price, i.stock_qty, i.low_stock_threshold, i.gst_rate, i.type || 'motor', id]);
     const updated = await get<Item>("SELECT * FROM items WHERE id = ?", [id]);
     res.json(updated);
   } catch (err: any) {

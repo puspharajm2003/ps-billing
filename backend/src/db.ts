@@ -689,6 +689,7 @@ export async function initializeTenantDatabase() {
       stock_qty REAL DEFAULT 0,
       low_stock_threshold REAL DEFAULT 2,
       gst_rate REAL DEFAULT 18,
+      type TEXT DEFAULT 'motor',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -818,6 +819,7 @@ export async function migrateTenantDatabase() {
     "ALTER TABLE invoices ADD COLUMN custom_section_slug TEXT",
     "ALTER TABLE settings ADD COLUMN custom_print_layout TEXT",
     "ALTER TABLE items ADD COLUMN low_stock_threshold REAL DEFAULT 2",
+    "ALTER TABLE items ADD COLUMN type TEXT DEFAULT 'motor'",
   ];
   for (const sql of safeMigrations) {
     try { await run(sql); } catch (_) { /* column already exists */ }

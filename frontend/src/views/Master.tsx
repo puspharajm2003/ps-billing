@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Plus, Search, Edit, Trash2, X, Check, AlertTriangle, Cpu, Users, UserCheck, Tag, Wallet
+  Plus, Search, Edit, Trash2, X, Check, AlertTriangle, Cpu, Users, UserCheck, Tag, Wallet, Package
 } from 'lucide-react';
 import { API_URL } from '../App';
 import type { Customer, Supplier, Item } from '../../../backend/src/types';
@@ -12,6 +12,7 @@ const t = (val: string) => val;
 export type MasterTab = 
   | 'item-group' 
   | 'item-master' 
+  | 'product-master'
   | 'customer-master' 
   | 'supplier-master' 
   | 'sales-executive' 
@@ -104,7 +105,7 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
   const fetchData = async () => {
     setLoading(true);
     try {
-      if (activeTab === 'item-master') {
+      if (activeTab === 'item-master' || activeTab === 'product-master') {
         const res = await authFetch(`${API_URL}/items`);
         if (res.ok) setItems(await res.json());
       } else if (activeTab === 'customer-master') {
@@ -152,7 +153,12 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
     if (activeTab === 'item-master') {
       setItemForm({
         code: '', name: '', brand: 'WEG', description: '', hp: '', rpm: '1500 RPM', poles: '4P', phase: 'Three', frame: '', volts: '415V',
-        purchase_price: 0, sales_price: 0, stock_qty: 0, low_stock_threshold: 2, gst_rate: 18
+        purchase_price: 0, sales_price: 0, stock_qty: 0, low_stock_threshold: 2, gst_rate: 18, type: 'motor'
+      });
+    } else if (activeTab === 'product-master') {
+      setItemForm({
+        code: '', name: '', brand: 'Other', description: '', hp: '', rpm: '', poles: '', phase: '', frame: '', volts: '',
+        purchase_price: 0, sales_price: 0, stock_qty: 0, low_stock_threshold: 2, gst_rate: 18, type: 'general'
       });
     } else if (activeTab === 'customer-master') {
       setCustomerForm({
@@ -179,7 +185,7 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
     setErrorMessage(null);
     setEditingType(activeTab);
 
-    if (activeTab === 'item-master') {
+    if (activeTab === 'item-master' || activeTab === 'product-master') {
       const it = items.find(x => x.id === id);
       if (it) setItemForm(it);
     } else if (activeTab === 'customer-master') {
@@ -207,6 +213,7 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
   const getApiEndpoint = (type: MasterTab) => {
     switch (type) {
       case 'item-master': return 'items';
+      case 'product-master': return 'items';
       case 'customer-master': return 'customers';
       case 'supplier-master': return 'suppliers';
       case 'item-group': return 'item-groups';
@@ -238,7 +245,7 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
   const handleSave = async () => {
     setErrorMessage(null);
     let payload: any = {};
-    if (editingType === 'item-master') payload = itemForm;
+    if (editingType === 'item-master' || editingType === 'product-master') payload = itemForm;
     else if (editingType === 'customer-master') payload = customerForm;
     else if (editingType === 'supplier-master') payload = supplierForm;
     else payload = basicForm;
@@ -401,6 +408,45 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
           </div>
         </div>
       );
+    } else if (editingType === 'product-master') {
+      return (
+        <div className="form-grid">
+          <div className="form-group">
+            <label>{t('Product Code')} *</label>
+            <input type="text" className="form-control" value={itemForm.code} onChange={e => setItemForm({...itemForm, code: e.target.value})} placeholder="e.g. PRD001" />
+          </div>
+          <div className="form-group" style={{ gridColumn: 'span 2' }}>
+            <label>{t('Product Name')} *</label>
+            <input type="text" className="form-control" value={itemForm.name} onChange={e => setItemForm({...itemForm, name: e.target.value})} placeholder="e.g. Wire Bundle, Switch, etc." />
+          </div>
+          <div className="form-group">
+            <label>{t('Unit / Brand')}</label>
+            <input type="text" className="form-control" value={itemForm.brand} onChange={e => setItemForm({...itemForm, brand: e.target.value})} placeholder="e.g. NOS, KGS, Polycab" />
+          </div>
+          <div className="form-group">
+            <label>{t('Purchase Price')}</label>
+            <input type="number" className="form-control" value={itemForm.purchase_price} onChange={e => setItemForm({...itemForm, purchase_price: parseFloat(e.target.value) || 0})} />
+          </div>
+          <div className="form-group">
+            <label>{t('Sales Price')} *</label>
+            <input type="number" className="form-control" value={itemForm.sales_price} onChange={e => setItemForm({...itemForm, sales_price: parseFloat(e.target.value) || 0})} />
+          </div>
+          <div className="form-group">
+            <label>{t('GST Rate (%)')}</label>
+            <select className="form-control" value={itemForm.gst_rate} onChange={e => setItemForm({...itemForm, gst_rate: parseFloat(e.target.value) || 0})}>
+              <option value="0">0%</option>
+              <option value="5">5%</option>
+              <option value="12">12%</option>
+              <option value="18">18%</option>
+              <option value="28">28%</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>{t('Low Stock Threshold')}</label>
+            <input type="number" className="form-control" value={itemForm.low_stock_threshold} onChange={e => setItemForm({...itemForm, low_stock_threshold: parseFloat(e.target.value) || 0})} />
+          </div>
+        </div>
+      );
     } else if (editingType === 'customer-master' || editingType === 'supplier-master') {
       const form = editingType === 'customer-master' ? customerForm : supplierForm;
       const setForm = editingType === 'customer-master' ? setCustomerForm : setSupplierForm;
@@ -447,8 +493,9 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
   };
 
   const filteredItems = items.filter(i => 
-    i.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    i.code.toLowerCase().includes(searchQuery.toLowerCase())
+    (activeTab === 'item-master' ? i.type !== 'general' : i.type === 'general') &&
+    (i.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+     i.code.toLowerCase().includes(searchQuery.toLowerCase()))
   );
   
   const filterList = (list: any[]) => list.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()));
@@ -456,6 +503,7 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
   const tabs: { key: MasterTab; label: string; icon: React.ReactNode }[] = [
     { key: 'item-group', label: t('Item Group'), icon: <Tag size={15} /> },
     { key: 'item-master', label: t('Item Master'), icon: <Cpu size={15} /> },
+    { key: 'product-master', label: t('Product Master'), icon: <Package size={15} /> },
     { key: 'customer-master', label: t('Customer Master'), icon: <Users size={15} /> },
     { key: 'supplier-master', label: t('Supplier Master'), icon: <UserCheck size={15} /> },
     { key: 'sales-executive', label: t('Sales Executive Master'), icon: <Users size={15} /> },
@@ -535,6 +583,16 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
                   <th>{t('Actions')}</th>
                 </tr>
               )}
+              {activeTab === 'product-master' && (
+                <tr>
+                  <th>{t('Code')}</th>
+                  <th>{t('Name')}</th>
+                  <th>{t('Brand / Unit')}</th>
+                  <th>{t('Sales Price')}</th>
+                  <th>{t('GST %')}</th>
+                  <th>{t('Actions')}</th>
+                </tr>
+              )}
               {(activeTab === 'customer-master' || activeTab === 'supplier-master') && (
                 <tr>
                   <th>{t('Name')}</th>
@@ -581,6 +639,24 @@ export const Master: React.FC<MasterProps> = ({ defaultTab = 'item-master' }) =>
                     <td style={{ fontWeight: 600 }}>{item.name}</td>
                     <td className="text-secondary" style={{ fontSize: '0.8rem' }}>
                       {item.brand} | {item.hp} | {item.rpm}
+                    </td>
+                    <td style={{ color: '#10b981', fontWeight: 600 }}>₹{item.sales_price}</td>
+                    <td>{item.gst_rate}%</td>
+                    <td>
+                      <div className="flex gap-2">
+                        <button className="btn btn-secondary" onClick={() => handleEditOpen(item.id!)} style={{ padding: '0.4rem', color: 'var(--color-accent-blue)' }}><Edit size={14} /></button>
+                        <button className="btn btn-secondary" onClick={() => handleDelete(item.id!)} style={{ padding: '0.4rem', color: '#ef4444' }}><Trash2 size={14} /></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              ) : activeTab === 'product-master' ? (
+                filteredItems.map(item => (
+                  <tr key={item.id}>
+                    <td style={{ fontFamily: 'monospace', fontWeight: 600 }}>{item.code}</td>
+                    <td style={{ fontWeight: 600 }}>{item.name}</td>
+                    <td className="text-secondary" style={{ fontSize: '0.8rem' }}>
+                      {item.brand}
                     </td>
                     <td style={{ color: '#10b981', fontWeight: 600 }}>₹{item.sales_price}</td>
                     <td>{item.gst_rate}%</td>
