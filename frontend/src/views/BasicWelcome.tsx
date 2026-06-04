@@ -97,22 +97,7 @@ export const BasicWelcome: React.FC<BasicWelcomeProps> = ({ settings }) => {
         </div>
       )}
 
-      {/* Welcome Banner */}
-      <div className="classic-bevel-out" style={{ width: '100%', maxWidth: '850px', background: '#d4d0c8', padding: '10px 15px' }}>
-        <div style={{ 
-          background: 'linear-gradient(90deg, #800000 0%, #d4d0c8 100%)', 
-          color: '#ffffff', 
-          padding: '4px 8px', 
-          fontWeight: 'bold', 
-          fontSize: '0.85rem',
-          marginBottom: '10px'
-        }}>
-          {t('SYSTEM ACCESS GRANTED — ADVANCED SMR MATRIX WORKSTATION')}
-        </div>
-        <p style={{ margin: 0, fontSize: '0.82rem', lineHeight: '1.4' }}>
-          {t('Welcome back,')} <strong>{user?.username}</strong>. {t('You have successfully authenticated into the SMR Groups Advanced Billing & Inventory System. Your secure enterprise profile has been initialized below.')}
-        </p>
-      </div>
+
 
       {/* Main Matrix Bevel Box */}
       <div className="classic-bevel-out" style={{ width: '100%', maxWidth: '850px', background: '#d4d0c8', padding: '1.2rem' }}>
