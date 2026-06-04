@@ -3,6 +3,7 @@ import { Plus, Search, Trash2, Save, X, FileText, Printer } from 'lucide-react';
 import { API_URL } from '../App';
 import type { CompanySettings } from '../App';
 import { useAuth } from '../AuthContext';
+import { parsePrintLayout, generateItemsTableHtml } from '../utils/printLayoutParser';
 import './Views.css';
 
 const t = (val: string) => val;
@@ -258,6 +259,28 @@ export const CustomSection: React.FC<CustomSectionProps> = ({ settings, sectionS
       ) : (
         <div className="editor-container animate-slide-down">
           {selectedInvoice ? (
+            settings.custom_print_layout ? (
+              <div className="invoice-sheet animate-slide-down" style={{ background: '#fff' }}>
+                <div dangerouslySetInnerHTML={{ __html: parsePrintLayout(
+                  settings.custom_print_layout,
+                  settings,
+                  selectedInvoice,
+                  customers.find(c => c.id === selectedInvoice.party_id),
+                  sectionName.toUpperCase(),
+                  generateItemsTableHtml(selectedInvoice.items, selectedInvoice.igst > 0)
+                ) }} />
+                <div className="flex gap-4 no-print" style={{ marginTop: '2rem', padding: '0 40px 40px 40px' }}>
+                  <button className="btn btn-primary" onClick={() => window.print()}>
+                    <Printer size={16} />
+                    <span>{t('Print')}</span>
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => setIsEditorOpen(false)}>
+                    <X size={16} />
+                    <span>{t('Close')}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
             /* View Mode */
             <div className="invoice-sheet glass-card" style={{ background: '#fff', color: '#2d3748', padding: '2.5rem', borderRadius: '8px' }}>
               <div className="invoice-header-grid" style={{ borderBottom: '2px solid #e2e8f0', paddingBottom: '1.5rem' }}>
@@ -316,6 +339,7 @@ export const CustomSection: React.FC<CustomSectionProps> = ({ settings, sectionS
                 <button className="btn btn-secondary" onClick={() => setIsEditorOpen(false)}><X size={16} /><span>{t('Close')}</span></button>
               </div>
             </div>
+            )
           ) : (
             /* Create Mode */
             <form onSubmit={handleSave} className="glass-card flex flex-col gap-6">

@@ -606,7 +606,8 @@ export async function initializeTenantDatabase() {
       account_number TEXT,
       ifsc_code TEXT,
       branch TEXT,
-      terms_conditions TEXT
+      terms_conditions TEXT,
+      custom_print_layout TEXT
     )
   `);
 
@@ -777,6 +778,7 @@ export async function migrateTenantDatabase() {
     "ALTER TABLE suppliers ADD COLUMN is_deleted INTEGER DEFAULT 0",
     "ALTER TABLE invoices ADD COLUMN converted_from_quotation_id INTEGER",
     "ALTER TABLE invoices ADD COLUMN custom_section_slug TEXT",
+    "ALTER TABLE settings ADD COLUMN custom_print_layout TEXT",
   ];
   for (const sql of safeMigrations) {
     try { await run(sql); } catch (_) { /* column already exists */ }

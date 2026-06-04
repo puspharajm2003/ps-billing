@@ -6,6 +6,7 @@ import { API_URL } from '../App';
 import type { CompanySettings } from '../App';
 import type { Item, Customer } from '../../../backend/src/types';
 import { useAuth } from '../AuthContext';
+import { parsePrintLayout, generateItemsTableHtml } from '../utils/printLayoutParser';
 import './Views.css';
 
 // Translation helper
@@ -378,6 +379,28 @@ export const Sales: React.FC<SalesProps> = ({ settings }) => {
       ) : (
         <div className="editor-container animate-slide-down">
           {selectedInvoice ? (
+            settings.custom_print_layout ? (
+              <div className="invoice-sheet animate-slide-down" style={{ background: '#fff' }}>
+                <div dangerouslySetInnerHTML={{ __html: parsePrintLayout(
+                  settings.custom_print_layout,
+                  settings,
+                  selectedInvoice,
+                  customers.find(c => c.id === selectedInvoice.party_id),
+                  'TAX INVOICE',
+                  generateItemsTableHtml(selectedInvoice.items, selectedInvoice.igst > 0)
+                ) }} />
+                <div className="flex gap-4 no-print" style={{ marginTop: '2rem', padding: '0 40px 40px 40px' }}>
+                  <button className="btn btn-primary" onClick={() => window.print()}>
+                    <Printer size={16} />
+                    <span>{t('Print Invoice')}</span>
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => setIsEditorOpen(false)}>
+                    <X size={16} />
+                    <span>{t('Exit Details')}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="invoice-sheet animate-slide-down" style={{ background: '#fff', color: '#000', padding: '2rem', borderRadius: '0px', fontFamily: '"Courier New", Courier, monospace, sans-serif' }}>
               {/* Retro Elegant Header */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1.5px solid #000', paddingBottom: '1rem', marginBottom: '1.5rem' }}>
@@ -512,6 +535,7 @@ export const Sales: React.FC<SalesProps> = ({ settings }) => {
                 </button>
               </div>
             </div>
+            )
           ) : (
             <form onSubmit={handleSaveInvoice} className="glass-card flex flex-col gap-6">
               <div className="view-header" style={{ padding: 0 }}>

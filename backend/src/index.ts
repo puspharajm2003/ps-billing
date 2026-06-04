@@ -716,11 +716,13 @@ app.put('/api/settings', async (req: any, res) => {
     await run(`
       UPDATE settings SET
         company_name = ?, address = ?, phone = ?, email = ?, gstin = ?, state = ?, state_code = ?,
-        bank_name = ?, account_name = ?, account_number = ?, ifsc_code = ?, branch = ?, terms_conditions = ?
+        bank_name = ?, account_name = ?, account_number = ?, ifsc_code = ?, branch = ?, terms_conditions = ?,
+        custom_print_layout = ?
       WHERE id = ?
     `, [
       s.company_name, s.address, s.phone, s.email, s.gstin, s.state, s.state_code,
       s.bank_name, s.account_name, s.account_number, s.ifsc_code, s.branch, s.terms_conditions,
+      s.custom_print_layout || null,
       s.id
     ]);
     

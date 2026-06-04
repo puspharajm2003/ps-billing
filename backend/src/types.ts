@@ -13,6 +13,7 @@ export interface CompanySettings {
   ifsc_code: string;
   branch: string;
   terms_conditions: string;
+  custom_print_layout?: string;
 }
 
 export interface Customer {

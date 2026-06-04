@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Building, CreditCard, Save, AlertTriangle, CheckCircle, Layers, Plus, Trash2
+  Building, CreditCard, Save, AlertTriangle, CheckCircle, Layers, Plus, Trash2, Upload, FileCode
 } from 'lucide-react';
 import { API_URL } from '../App';
 import type { CompanySettings, CustomSectionDef } from '../App';
@@ -31,7 +31,8 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate, onSections
     account_number: '',
     ifsc_code: '',
     branch: '',
-    terms_conditions: ''
+    terms_conditions: '',
+    custom_print_layout: ''
   });
 
   const [loading, setLoading] = useState<boolean>(true);
@@ -151,6 +152,70 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate, onSections
     } finally {
       setBackupLoading(false);
     }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const text = ev.target?.result as string;
+        setSettings(prev => ({ ...prev, custom_print_layout: text }));
+      };
+      reader.readAsText(file);
+    }
+  };
+
+  const loadProfessionalTemplate = () => {
+    const template = `
+<div style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; padding: 40px; background: #fff; max-width: 900px; margin: 0 auto;">
+  <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #6366f1; padding-bottom: 20px; margin-bottom: 20px;">
+    <div>
+      <h1 style="color: #6366f1; margin: 0 0 10px 0; font-size: 28px;">{{company_name}}</h1>
+      <p style="margin: 0; font-size: 14px; color: #555;">{{company_address}}</p>
+      <p style="margin: 4px 0 0 0; font-size: 14px; color: #555;">GSTIN: {{company_gstin}}</p>
+    </div>
+    <div style="text-align: right;">
+      <h2 style="margin: 0 0 10px 0; font-size: 24px; color: #444; text-transform: uppercase;">{{invoice_type}}</h2>
+      <p style="margin: 0; font-size: 14px;"><strong>No:</strong> {{invoice_number}}</p>
+      <p style="margin: 4px 0 0 0; font-size: 14px;"><strong>Date:</strong> {{date}}</p>
+    </div>
+  </div>
+
+  <div style="margin-bottom: 30px;">
+    <h3 style="margin: 0 0 10px 0; font-size: 16px; color: #444; border-bottom: 1px solid #eee; padding-bottom: 5px;">Bill To:</h3>
+    <p style="margin: 0; font-size: 15px; font-weight: bold;">{{customer_name}}</p>
+    <p style="margin: 4px 0 0 0; font-size: 14px; color: #555; white-space: pre-wrap;">{{customer_address}}</p>
+  </div>
+
+  <div style="margin-bottom: 30px;">
+    {{items_table}}
+  </div>
+
+  <div style="display: flex; justify-content: flex-end; margin-bottom: 40px;">
+    <div style="width: 300px; background: #f8fafc; padding: 20px; border-radius: 8px;">
+      <div style="display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px;">
+        <span>Subtotal:</span>
+        <span>₹ {{subtotal}}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; padding-bottom: 15px; border-bottom: 1px solid #ddd;">
+        <span>Tax Amount:</span>
+        <span>₹ {{tax_amount}}</span>
+      </div>
+      <div style="display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; color: #6366f1;">
+        <span>Total:</span>
+        <span>₹ {{grand_total}}</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="border-top: 1px solid #eee; padding-top: 20px; font-size: 12px; color: #666; text-align: center;">
+    <p style="margin: 0 0 5px 0;"><strong>Terms & Conditions</strong></p>
+    <p style="margin: 0; white-space: pre-wrap;">{{terms_conditions}}</p>
+  </div>
+</div>
+    `.trim();
+    setSettings(prev => ({ ...prev, custom_print_layout: template }));
   };
 
   if (loading && !settings.company_name) {
@@ -338,6 +403,51 @@ export const Settings: React.FC<SettingsProps> = ({ onSettingsUpdate, onSections
             {backupAlert}
           </p>
         )}
+      </div>
+
+      {/* ========================
+          ADVANCED PRINT LAYOUT CONFIGURATION
+          ======================== */}
+      <div className="glass-card flex flex-col gap-4" style={{ borderColor: 'var(--color-primary)', borderWidth: '1px', marginTop: '1.5rem' }}>
+        <div className="flex justify-between items-start">
+          <div>
+            <h3 className="text-primary flex items-center gap-2">
+              <FileCode size={20} />
+              <span>{t('Advanced Print Layout Configuration')}</span>
+            </h3>
+            <p className="text-secondary" style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>
+              {t('Customize the HTML/CSS layout used for printing Invoices, Quotations, and Purchase Orders.')}<br/>
+              {t('Use placeholders like')} <code>{`{{company_name}}`}</code>, <code>{`{{invoice_number}}`}</code>, <code>{`{{customer_name}}`}</code>, {t('and')} <code>{`{{items_table}}`}</code>.
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button type="button" className="btn btn-secondary text-xs py-1" onClick={loadProfessionalTemplate}>
+              {t('Load Professional Template')}
+            </button>
+            <label className="btn btn-secondary text-xs py-1 cursor-pointer">
+              <Upload size={14} className="mr-1" />
+              {t('Upload .html')}
+              <input type="file" accept=".html,.htm" style={{ display: 'none' }} onChange={handleFileUpload} />
+            </label>
+          </div>
+        </div>
+
+        <div className="form-group" style={{ marginTop: '0.5rem' }}>
+          <textarea 
+            name="custom_print_layout" 
+            value={settings.custom_print_layout || ''} 
+            onChange={handleChange} 
+            rows={15} 
+            className="form-control" 
+            style={{ 
+              fontFamily: 'monospace', 
+              fontSize: '13px', 
+              backgroundColor: 'var(--color-bg-tertiary)',
+              color: 'var(--color-text-primary)'
+            }}
+            placeholder={t("<!-- Leave empty to use the standard system print layout -->\n<div class='custom-invoice'>...</div>")}
+          />
+        </div>
       </div>
 
       {/* ========================

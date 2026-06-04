@@ -6,6 +6,7 @@ import { API_URL } from '../App';
 import type { CompanySettings } from '../App';
 import type { Item, Customer } from '../../../backend/src/types';
 import { useAuth } from '../AuthContext';
+import { parsePrintLayout, generateItemsTableHtml } from '../utils/printLayoutParser';
 import './Views.css';
 
 // Translation helper
@@ -399,6 +400,36 @@ export const Quotation: React.FC<QuotationProps> = ({ settings }) => {
       ) : (
         <div className="editor-container animate-slide-down">
           {selectedInvoice ? (
+            settings.custom_print_layout ? (
+              <div className="invoice-sheet animate-slide-down" style={{ background: '#fff' }}>
+                <div dangerouslySetInnerHTML={{ __html: parsePrintLayout(
+                  settings.custom_print_layout,
+                  settings,
+                  selectedInvoice,
+                  customers.find(c => c.id === selectedInvoice.party_id),
+                  'PROFORMA INVOICE',
+                  generateItemsTableHtml(selectedInvoice.items, selectedInvoice.igst > 0)
+                ) }} />
+                <div className="no-print flex gap-4" style={{ marginTop: '2rem', padding: '0 40px 40px 40px' }}>
+                  <button className="btn btn-primary" onClick={() => window.print()}>
+                    <Printer size={16} />
+                    <span>{t('Print Estimate')}</span>
+                  </button>
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={() => handleConvertQuotation(selectedInvoice.id)}
+                    style={{ backgroundColor: '#10b981', border: '1px solid #10b981' }}
+                  >
+                    <RefreshCw size={16} />
+                    <span>{t('Generate Tax Invoice')}</span>
+                  </button>
+                  <button className="btn btn-secondary" onClick={() => setIsEditorOpen(false)}>
+                    <X size={16} />
+                    <span>{t('Exit Details')}</span>
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="invoice-sheet print-layout-container" style={{ background: '#fff', color: '#000', padding: '0', borderRadius: '0', width: '100%', maxWidth: '900px', margin: '0 auto', border: 'none', boxShadow: 'none', fontFamily: 'Arial, sans-serif' }}>
               {/* TOP BLANK SPACING (for pre-printed letterhead) */}
               <div style={{ height: '3.3in' }}></div>
@@ -531,6 +562,7 @@ export const Quotation: React.FC<QuotationProps> = ({ settings }) => {
                 </button>
               </div>
             </div>
+            )
           ) : (
             <form onSubmit={handleSaveQuotation} className="glass-card flex flex-col gap-6">
               <div className="view-header" style={{ padding: 0 }}>
